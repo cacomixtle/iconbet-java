@@ -1,0 +1,33 @@
+version = '0.1.0'
+
+dependencies {
+    compileOnly 'foundation.icon:javaee-api:0.9.0'
+    //needed to check why this lib is needed
+    implementation 'com.github.sink772:javaee-tokens:0.6.0'
+
+    testImplementation 'foundation.icon:javaee-unittest:0.9.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
+}
+
+optimizedJar {
+    mainClassName = 'com.iconbet.score.tap.TapToken'
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+deployJar {
+    endpoints {
+        local {
+            uri = 'http://localhost:9082/api/v3'
+            nid = 0x3
+        }
+    }
+    keystore = rootProject.hasProperty('keystoreName') ? "$keystoreName" : ''
+    password = rootProject.hasProperty('keystorePass') ? "$keystorePass" : ''
+}
+
+test {
+    useJUnitPlatform()
+}
