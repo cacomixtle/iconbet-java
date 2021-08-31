@@ -3,3 +3,7 @@
 build
 out
 .class
+.project
+.settings
+.classpath
+*/bin/
