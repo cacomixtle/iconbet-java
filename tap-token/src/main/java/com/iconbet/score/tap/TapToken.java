@@ -74,7 +74,7 @@ public class TapToken implements IRC2{
 	private final VarDB<BigInteger> indexAddressChanges = Context.newVarDB(INDEX_ADDRESS_CHANGES, BigInteger.class);
 
 	private final VarDB<BigInteger> balanceUpdateDb = Context.newVarDB(BALANCE_UPDATE_DB, BigInteger.class);
-	private final VarDB<BigInteger> addressUpdateDb = Context.newVarDB(ADDRESS_UPDATE_DB, BigInteger.class);
+	private final VarDB<Integer> addressUpdateDb = Context.newVarDB(ADDRESS_UPDATE_DB, Integer.class);
 
 	private final VarDB<Address> dividendsScore = Context.newVarDB(DIVIDENDS_SCORE, Address.class);
 	private final ArrayDB<Address> blacklistAddress = Context.newArrayDB(BLACKLIST_ADDRESS, Address.class);
@@ -296,9 +296,101 @@ public class TapToken implements IRC2{
 
 	@Override
 	@External
-	public void transfer(Address _to, BigInteger _value, byte[] _data) {
-		// TODO Auto-generated method stub
+	public void transfer(Address to, BigInteger value, byte[] data) {
+		//TODO: review all the loops that are use for searching
+		//create a util method for this section of code.
+		boolean found = false;
+		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
+			if(this.pauseWhitelist.get(i) != null 
+					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
+				found = true;
+				break;
+			}
+		}
 
+		if(this.paused.get() && !found) {
+			Context.revert("TAP token transfers are paused.");
+		}
+
+		found = false;
+		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
+			if(this.locklist.get(i) != null 
+					&& this.locklist.get(i).equals(Context.getCaller())) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			Context.revert("Transfer of TAP has been locked for this address.");
+		}
+
+		if (data == null || data.length == 0) {
+			data = "None".getBytes();
+		}
+		this._transfer(Context.getCaller(), to, value, data);
+	}
+
+	private void _transfer(Address from, Address to, BigInteger value, byte[] data) {
+
+		// Checks the sending value and balance.
+		if (value.compareTo(BigInteger.ZERO) < 0) {
+			Context.revert("Transferring value cannot be less than zero");
+		}
+
+		BigInteger balanceFrom = this.balances.get(from);
+		BigInteger balanceTo = this.balances.get(to);
+		if ( balanceFrom.compareTo(value) < 0) {
+			Context.revert("Out of balance");
+		}
+		this.checkFirstTime(from);
+		this.checkFirstTime(to);
+		this.makeAvailable(to);
+		this.makeAvailable(from);
+
+		BigInteger[] sbFrom = this.stakedBalances.get(from);
+		BigInteger[] sbTo = this.stakedBalances.get(to);
+		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
+			Context.revert("Out of available balance");
+		}
+
+		balanceFrom = balanceFrom.subtract(value);
+		balanceTo = balanceTo.add(value);
+
+		sbFrom[Status.AVAILABLE] = (sbFrom[Status.AVAILABLE].subtract(value));
+		sbTo[Status.AVAILABLE] = (sbTo[Status.AVAILABLE].add(value));
+
+		boolean found = false;
+		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
+			if(this.pauseWhitelist.get(i) != null 
+					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
+				found = true;
+				break;
+			}
+		}
+
+		if ( !containsInArrayDb(to, this.addresses ) ){
+			this.addresses.add(to);
+		}
+		if (to.isContract()){
+			// If the recipient is SCORE,
+			//   then calls `tokenFallback` to hand over control.
+			Context.call(to, "tokenFallback", from, value, data);
+		}
+
+		// Emits an event log `Transfer`
+		this.Transfer(from, to, value, data);
+		if ( !this.switchDivsToStakedTapEnabled.getOrDefault(false) ){
+			ArrayDB<Address> addressChanges = this.changes.get(this.addressUpdateDb.getOrDefault(0));
+			if ( !containsInArrayDb(from, this.blacklistAddress) ) {
+				addressChanges.add(from);
+			}
+			if ( ! containsInArrayDb(to, this.blacklistAddress) ){
+				addressChanges.add(to);
+			}
+		}
+		//
+		//Logger.debug(f"Transfer({_from}, {_to}, {_value}, {_data})", TAG)
 	}
 
 	@External
@@ -381,4 +473,19 @@ public class TapToken implements IRC2{
 		}
 	}
 
+	private <T> Boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
+		boolean found = false;
+		if(arraydb == null || value == null) {
+			return found;
+		}
+
+		for(int i = 0; i< arraydb.size(); i++) {
+			if(arraydb.get(i) != null
+					&& arraydb.get(i).equals(value)) {
+				found = true;
+				break;
+			}
+		}
+		return found;
+	}
 }
