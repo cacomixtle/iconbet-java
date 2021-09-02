@@ -138,6 +138,9 @@ public class TapToken implements IRC2{
 
         Sets the value of self.owner to the score holding the game treasury.
 		 */
+		//Context.getOrigin() - > txn.origin  - always wallet
+		//Context.getCaller() - > sender
+		//Context.getOrigin() - > owner
 		if (Context.getOrigin().equals(Context.getOwner()))
 			Context.revert("Only the owner can call the untether method.");
 	}
@@ -213,9 +216,11 @@ public class TapToken implements IRC2{
 		return this.paused.get();
 	}
 
+	//TODO:honor method name convention as snake
 	@External(readonly=true)
 	public Map<String, BigInteger> detailsBalanceOf(Address owner) {
 
+		//Context.getBlockTimestamp() -- > self.now()
 		BigInteger currUnstaked = BigInteger.ZERO;
 		BigInteger[] sb = this.stakedBalances.getOrDefault(owner, Status.EMPTY_STATUS_ARRAY);
 		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
@@ -389,7 +394,9 @@ public class TapToken implements IRC2{
 				addressChanges.add(to);
 			}
 		}
-		//
+		
+		//can we replace Logger with Context.println(); ? 
+		//remove logger lines
 		//Logger.debug(f"Transfer({_from}, {_to}, {_value}, {_data})", TAG)
 	}
 
