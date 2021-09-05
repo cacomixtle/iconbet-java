@@ -1,6 +1,7 @@
 package com.iconbet.score.tap;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,9 @@ import score.annotation.External;
 public class TapToken implements IRC2{
 	protected static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
 
+	private static final String TAG = "TapToken";
+	//TODO: verify this value exists as long and not as biginteger
+	private static long DAY_TO_MICROSECOND = (long) Math.pow( 24*60*60, 6);
 	private static final String BALANCES = "balances";
 	private static final String TOTAL_SUPPLY = "total_supply";
 	private static final String DECIMALS = "decimals";
@@ -299,107 +303,6 @@ public class TapToken implements IRC2{
 		this.paused.set(! this.paused.getOrDefault(false));
 	}
 
-	@Override
-	@External
-	public void transfer(Address to, BigInteger value, byte[] data) {
-		//TODO: review all the loops that are use for searching
-		//create a util method for this section of code.
-		boolean found = false;
-		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
-			if(this.pauseWhitelist.get(i) != null 
-					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
-				found = true;
-				break;
-			}
-		}
-
-		if(this.paused.get() && !found) {
-			Context.revert("TAP token transfers are paused.");
-		}
-
-		found = false;
-		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
-			if(this.locklist.get(i) != null 
-					&& this.locklist.get(i).equals(Context.getCaller())) {
-				found = true;
-				break;
-			}
-		}
-
-		if (found) {
-			Context.revert("Transfer of TAP has been locked for this address.");
-		}
-
-		if (data == null || data.length == 0) {
-			data = "None".getBytes();
-		}
-		this._transfer(Context.getCaller(), to, value, data);
-	}
-
-	private void _transfer(Address from, Address to, BigInteger value, byte[] data) {
-
-		// Checks the sending value and balance.
-		if (value.compareTo(BigInteger.ZERO) < 0) {
-			Context.revert("Transferring value cannot be less than zero");
-		}
-
-		BigInteger balanceFrom = this.balances.get(from);
-		BigInteger balanceTo = this.balances.get(to);
-		if ( balanceFrom.compareTo(value) < 0) {
-			Context.revert("Out of balance");
-		}
-		this.checkFirstTime(from);
-		this.checkFirstTime(to);
-		this.makeAvailable(to);
-		this.makeAvailable(from);
-
-		BigInteger[] sbFrom = this.stakedBalances.get(from);
-		BigInteger[] sbTo = this.stakedBalances.get(to);
-		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
-			Context.revert("Out of available balance");
-		}
-
-		balanceFrom = balanceFrom.subtract(value);
-		balanceTo = balanceTo.add(value);
-
-		sbFrom[Status.AVAILABLE] = (sbFrom[Status.AVAILABLE].subtract(value));
-		sbTo[Status.AVAILABLE] = (sbTo[Status.AVAILABLE].add(value));
-
-		boolean found = false;
-		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
-			if(this.pauseWhitelist.get(i) != null 
-					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
-				found = true;
-				break;
-			}
-		}
-
-		if ( !containsInArrayDb(to, this.addresses ) ){
-			this.addresses.add(to);
-		}
-		if (to.isContract()){
-			// If the recipient is SCORE,
-			//   then calls `tokenFallback` to hand over control.
-			Context.call(to, "tokenFallback", from, value, data);
-		}
-
-		// Emits an event log `Transfer`
-		this.Transfer(from, to, value, data);
-		if ( !this.switchDivsToStakedTapEnabled.getOrDefault(false) ){
-			ArrayDB<Address> addressChanges = this.changes.get(this.addressUpdateDb.getOrDefault(0));
-			if ( !containsInArrayDb(from, this.blacklistAddress) ) {
-				addressChanges.add(from);
-			}
-			if ( ! containsInArrayDb(to, this.blacklistAddress) ){
-				addressChanges.add(to);
-			}
-		}
-		
-		//can we replace Logger with Context.println(); ? 
-		//remove logger lines
-		//Logger.debug(f"Transfer({_from}, {_to}, {_value}, {_data})", TAG)
-	}
-
 	@External
 	public void stake(BigInteger value) {
 		this.stakingEnabledOnly();
@@ -456,6 +359,97 @@ public class TapToken implements IRC2{
 		stakeAddressChanges.add(from);
 	}
 
+	@Override
+	@External
+	public void transfer(Address to, BigInteger value, byte[] data) {
+		//TODO: review all the loops that are use for searching
+		//create a util method for this section of code.
+		boolean found = false;
+		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
+			if(this.pauseWhitelist.get(i) != null 
+					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
+				found = true;
+				break;
+			}
+		}
+
+		if(this.paused.get() && !found) {
+			Context.revert("TAP token transfers are paused.");
+		}
+
+		found = false;
+		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
+			if(this.locklist.get(i) != null 
+					&& this.locklist.get(i).equals(Context.getCaller())) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found) {
+			Context.revert("Transfer of TAP has been locked for this address.");
+		}
+
+		if (data == null || data.length == 0) {
+			data = "None".getBytes();
+		}
+		this._transfer(Context.getCaller(), to, value, data);
+	}
+
+	private void _transfer(Address from, Address to, BigInteger value, byte[] data) {
+
+		// Checks the sending value and balance.
+		if (value == null || value.compareTo(BigInteger.ZERO) < 0) {
+			Context.revert("Transferring value cannot be less than zero");
+		}
+
+		BigInteger balanceFrom = this.balances.get(from);
+		BigInteger balanceTo = this.balances.get(to);
+		if ( balanceFrom.compareTo(value) < 0) {
+			Context.revert("Out of balance");
+		}
+		this.checkFirstTime(from);
+		this.checkFirstTime(to);
+		this.makeAvailable(to);
+		this.makeAvailable(from);
+
+		BigInteger[] sbFrom = this.stakedBalances.get(from);
+		BigInteger[] sbTo = this.stakedBalances.get(to);
+		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
+			Context.revert("Out of available balance");
+		}
+
+		balanceFrom = balanceFrom.subtract(value);
+		balanceTo = balanceTo.add(value);
+
+		sbFrom[Status.AVAILABLE] = (sbFrom[Status.AVAILABLE].subtract(value));
+		sbTo[Status.AVAILABLE] = (sbTo[Status.AVAILABLE].add(value));
+
+		if ( !containsInArrayDb(to, this.addresses ) ){
+			this.addresses.add(to);
+		}
+		if (to.isContract()){
+			// If the recipient is SCORE,
+			//   then calls `tokenFallback` to hand over control.
+			Context.call(to, "tokenFallback", from, value, data);
+		}
+
+		// Emits an event log `Transfer`
+		this.Transfer(from, to, value, data);
+		if ( !this.switchDivsToStakedTapEnabled.getOrDefault(false) ){
+			ArrayDB<Address> addressChanges = this.changes.get(this.addressUpdateDb.getOrDefault(0));
+			if ( !containsInArrayDb(from, this.blacklistAddress) ) {
+				addressChanges.add(from);
+			}
+			if ( ! containsInArrayDb(to, this.blacklistAddress) ){
+				addressChanges.add(to);
+			}
+		}
+
+		Context.println("Transfer({"+from+"}, {"+to+"}, {"+value+"}, {"+data+")"+ TAG);
+
+	}
+
 	private void ownerOnly() {
 		//TODO: there is a method called Context.getOrigin()
 		//this method works for first time call, test this scenario
@@ -480,7 +474,310 @@ public class TapToken implements IRC2{
 		}
 	}
 
-	private <T> Boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
+	@External
+	public void set_minimum_stake(BigInteger amount) {
+		/*
+        Set the minimum stake amount
+        :param _amount: Minimum amount of stake needed.
+		 */
+		this.ownerOnly();
+		if ( amount == null || amount.compareTo(BigInteger.ZERO) < 0) {
+			Context.revert("Amount cannot be less than zero");
+		}
+
+		//TODO: verify this operation
+		BigInteger totalAmount = amount.pow(this.decimals.getOrDefault(BigInteger.ONE).intValue());
+		this.minimumStake.set(totalAmount);
+	}
+
+
+	@External
+	public void set_unstaking_period(BigInteger time){
+		/*
+        Set the minimum staking period
+        :param _time: Staking time period in days.
+		 */
+
+		this.ownerOnly();
+		if (time == null || time.compareTo(BigInteger.ZERO) < 0 ) {
+			Context.revert("Time cannot be negative.");
+		}
+		BigInteger totalTime = time.multiply( BigInteger.valueOf(DAY_TO_MICROSECOND));  // convert days to microseconds
+		this.unstakingPeriod.set(totalTime);
+	}
+
+	@External
+	public void set_max_loop(BigInteger loops) {
+		/*
+        Set the maximum number a for loop can run for any operation
+        :param _loops: Maximum number of for loops allowed
+        :return:
+		 */
+		if(loops == null) {
+			loops = BigInteger.valueOf(100L);
+		}
+		this.ownerOnly();
+		this.maxLoop.set(loops);
+	}
+
+	@External(readonly=true)
+	public BigInteger get_minimum_stake() {
+		/*
+        Returns the minimum stake amount
+		 */
+		return this.minimumStake.get();
+	}
+
+	@External(readonly=true)
+	public BigInteger get_unstaking_period(){
+		/*
+        Returns the minimum staking period in days
+		 */
+		BigInteger timeInMicroseconds = this.unstakingPeriod.get();
+		BigInteger timeInDays = timeInMicroseconds; //TODO: there was a bug? // DAY_TO_MICROSECOND
+		return timeInDays;
+	}
+
+	@External(readonly=true)
+	public BigInteger get_max_loop() {
+		/*
+        Returns the maximum number of for loops allowed in the score
+        :return:
+		 */
+		return this.maxLoop.get();
+	}
+
+	//TODO: variable names affects the contract? probably yes, preserve them
+	@External
+	public void set_dividends_score(Address _score) {
+		/*
+        Sets the dividends score address. The function can only be invoked by score owner.
+        :param _score: Score address of the dividends contract
+        :type _score: :class:`iconservice.base.address.Address`
+		 */
+		this.ownerOnly();
+		this.dividendsScore.set(_score);
+	}
+
+	@External(readonly=true)
+	public Address get_dividends_score() {
+		/*
+         Returns the roulette score address.
+        :return: Address of the roulette score
+        :rtype: :class:`iconservice.base.address.Address`
+		 */
+		return this.dividendsScore.get();
+	}
+
+	@External
+	public Map<String, BigInteger> get_balance_updates() {
+		/*
+        Returns the updated addresses and their balances for today. Returns empty dictionary if the updates has
+        completed
+        :return: Dictionary contains the addresses and their updated balances. Maximum number of addresses
+        and balances returned is defined by the max_loop
+		 */
+		this.dividendsOnly();
+		ArrayDB<Address> balanceChanges = this.changes.get(this.balanceUpdateDb.getOrDefault(BigInteger.ZERO).intValue());
+
+		int lengthList = balanceChanges.size();
+
+		int start = this.indexUpdateBalance.getOrDefault(BigInteger.ZERO).intValue();
+		if (start == lengthList){
+			if (this.balanceUpdateDb.getOrDefault(BigInteger.ZERO).intValue() != this.addressUpdateDb.getOrDefault(0) ) {
+				this.balanceUpdateDb.set(BigInteger.valueOf(this.addressUpdateDb.get()));
+				this.indexUpdateBalance.set(this.indexAddressChanges.getOrDefault(BigInteger.ZERO));
+			}
+			return new HashMap<>();
+		}
+
+		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
+
+		Map<String, BigInteger> balances = new HashMap<>();
+		for(int i = start; i< end; i++) {
+			balances.put(balanceChanges.get(i).toString(), this.balances.get(balanceChanges.get(i)));
+		}
+
+		this.indexUpdateBalance.set(BigInteger.valueOf(end));
+		return balances;
+	}
+
+	@External
+	public Boolean clear_yesterdays_changes() {
+		/*
+        Clears the array db storing yesterday's changes
+        :return: True if the array has been emptied
+		 */
+		this.dividendsOnly();
+		int yesterday = (this.addressUpdateDb.getOrDefault(0).intValue() + 1) % 2;
+		ArrayDB<Address> yesterdaysChanges = this.changes.get(yesterday);
+		int lengthList = yesterdaysChanges.size();
+		if (lengthList == 0) {
+			return true;
+		}
+
+		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(BigInteger.ZERO).intValue());
+		for (int i= 0; i<loopCount; i++) {
+			yesterdaysChanges.pop();
+		}
+
+		return yesterdaysChanges.size() <= 0;
+	}
+
+	@External(readonly=true)
+	public List<Address> get_blacklist_addresses() {
+		/*
+        Returns all the blacklisted addresses(rewards score address and devs team address)
+        :return: List of blacklisted address
+        :rtype: list
+		 */
+		List<Address> addressList = new ArrayList<>();
+
+		for (int i=0; i< this.blacklistAddress.size(); i++) {
+			addressList.add(this.blacklistAddress.get(i));
+		}
+		return addressList;
+	}
+
+	@External
+	public void remove_from_blacklist(Address _address) {
+		/*
+        Removes the address from blacklist.
+        Only owner can remove the blacklist address
+        :param _address: Address to be removed from blacklist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+		 */
+		if (Context.getCaller().equals(Context.getOwner()) ){
+			if ( !containsInArrayDb(_address, this.blacklistAddress) ){
+				//TODO: check if toString produces a s;tring representation or a java object string
+				Context.revert(_address + " not in blacklist address");
+			}
+			this.BlacklistAddress(_address, "Removed from blacklist");
+			Address top = this.blacklistAddress.pop();
+
+			if ( top != null && !top.equals(_address) ) {
+				for (int i = 0; i< this.blacklistAddress.size(); i++ ) {
+					if (this.blacklistAddress.get(i).equals(_address)) {
+						this.blacklistAddress.set(i, top);
+					}
+				}
+			}
+		}
+	}
+
+	@External
+	public void set_blacklist_address(Address _address) {
+		/*
+        The provided address is set as blacklist address and will be excluded from TAP dividends.
+        Only the owner can set the blacklist address
+        :param _address: Address to be included in the blacklist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+		 */
+		if ( Context.getCaller().equals(Context.getOwner())) {
+			this.BlacklistAddress(_address, "Added to Blacklist");
+			if ( !containsInArrayDb(_address , this.blacklistAddress) ){
+				this.blacklistAddress.add(_address);
+			}
+		}
+	}
+
+	@External
+	public void switch_address_update_db() {
+		/*
+        Switches the day when the distribution has to be started
+        :return:
+		 */
+		this.dividendsOnly();
+		int newDay = (this.addressUpdateDb.getOrDefault(0) + 1) % 2;
+		this.addressUpdateDb.set(newDay);
+		ArrayDB<Address> addressChanges = this.changes.get(newDay);
+		this.indexAddressChanges.set(BigInteger.valueOf(addressChanges.size()));
+	}
+
+	@External
+	public Map<String, BigInteger> get_stake_updates() {
+		/*
+        Returns the updated addresses. Returns empty dictionary if the updates has
+        completed
+        :return: Dictionary contains the addresses. Maximum number of addresses
+        and balances returned is defined by the max_loop
+		 */
+		this.dividendsOnly();
+		this.stakingEnabledOnly();
+		this.switchDivsToStakedTapEnabledOnly();
+
+		ArrayDB<Address> stakeChanges = this.stakeChanges.get(this.stakeUpdateDb.getOrDefault(BigInteger.ZERO).intValue());
+		int lengthList = stakeChanges.size();
+
+		int start = this.indexUpdateStake.getOrDefault(BigInteger.ZERO).intValue();
+		if (start == lengthList) {
+			if (this.stakeUpdateDb.getOrDefault(BigInteger.ZERO).intValue() != 
+					this.stakeAddressUpdateDb.getOrDefault(0)) {
+				this.stakeUpdateDb.set(BigInteger.valueOf(this.stakeAddressUpdateDb.getOrDefault(0)));
+				this.indexUpdateStake.set(this.indexStakeAddressChanges.getOrDefault(BigInteger.ZERO));
+			}
+			return new HashMap<>();
+		}
+		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
+
+		Map<String, BigInteger> detailedBalances = new HashMap<>();
+		for(int i=start; i< end; i++) {
+			detailedBalances.put( stakeChanges.get(i).toString(),  this.stakedBalanceOf(stakeChanges.get(i)));
+		}
+		this.indexUpdateStake.set(BigInteger.valueOf(end));
+		return detailedBalances;
+	}
+
+	@External
+	public Boolean clear_yesterdays_stake_changes() {
+		this.stakingEnabledOnly();
+		this.switchDivsToStakedTapEnabledOnly();
+		this.dividendsOnly();
+		int yesterday = (this.stakeAddressUpdateDb.get() + 1) % 2;
+		ArrayDB<Address> yesterdaysChanges = this.stakeChanges.get(yesterday);
+		int lengthList = yesterdaysChanges.size();
+		if (lengthList == 0) {
+			return true;
+		}
+		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(BigInteger.ZERO).intValue());
+		for (int i=0 ;i < loopCount; i++) {
+			yesterdaysChanges.pop();
+		}
+		return yesterdaysChanges.size() <= 0;
+	}
+
+	@External
+	public void switch_stake_update_db() {
+		this.dividendsOnly();
+		this.stakingEnabledOnly();
+		this.switchDivsToStakedTapEnabledOnly();
+
+		int newDay = (this.stakeAddressUpdateDb.getOrDefault(0) + 1) % 2;
+		this.stakeAddressUpdateDb.set(newDay);
+		ArrayDB<Address> stakeChanges = this.stakeChanges.get(newDay);
+		this.indexStakeAddressChanges.set(BigInteger.valueOf(stakeChanges.size()));
+	}
+
+	@External(readonly=true)
+	public List<Address> get_locklist_addresses() {
+		/*
+        Returns all locked addresses.
+        :return: List of locked addresses
+        :rtype: list
+		 */
+		List<Address> addressList = new ArrayList<>();
+		for (int i=0; i< this.locklist.size(); i++) {
+			addressList.add(locklist.get(i));
+		}
+		return addressList;
+	}
+
+
+
+
+	private <T> boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
 		if(arraydb == null || value == null) {
 			return found;
@@ -495,4 +792,5 @@ public class TapToken implements IRC2{
 		}
 		return found;
 	}
+
 }
