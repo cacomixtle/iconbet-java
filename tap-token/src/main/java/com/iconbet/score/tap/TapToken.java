@@ -22,7 +22,7 @@ public class TapToken implements IRC2{
 
 	private static final String TAG = "TapToken";
 	//TODO: verify this value exists as long and not as biginteger
-	private static long DAY_TO_MICROSECOND = (long) Math.pow( 24*60*60, 6);
+	private static final long DAY_TO_MICROSECOND = (long) Math.pow( 24*60*60, 6);
 	private static final String BALANCES = "balances";
 	private static final String TOTAL_SUPPLY = "total_supply";
 	private static final String DECIMALS = "decimals";
@@ -113,6 +113,28 @@ public class TapToken implements IRC2{
 	private final ArrayDB<Address> pauseWhitelist = Context.newArrayDB(PAUSE_WHITELIST, Address.class);
 	private final ArrayDB<Address> locklist = Context.newArrayDB(LOCKLIST, Address.class);
 
+	public TapToken(BigInteger _initialSupply, BigInteger _decimals) {
+		if (_initialSupply == null || _initialSupply.compareTo(BigInteger.ZERO) < 0) {
+			Context.revert("Initial supply cannot be less than zero");
+		}
+
+		if (_decimals == null || _decimals.compareTo(BigInteger.ZERO) < 0) {
+			Context.revert("Decimals cannot be less than zero");
+		}
+
+		//TODO: make sure iconbet do not want decimals a biginteger like 2^2147483647 decimals
+		//in terms of value, having it as datatype is ok
+		//(having decimals as biginteger does not make sense)
+		BigInteger totalSupply = _initialSupply.multiply( BigInteger.valueOf(10).pow(_decimals.intValue()) );
+		Context.println(TAG+" : total_supply "+ totalSupply );
+
+		this.totalSupply.set(totalSupply);
+		this.decimals.set(_decimals);
+		this.balances.set(Context.getOwner(), totalSupply);
+		this.addresses.add(Context.getOwner());
+
+	}
+
 	@Override
 	@EventLog(indexed=3)
 	public void Transfer( Address from, Address to, BigInteger value, byte[] data) {}
@@ -125,10 +147,6 @@ public class TapToken implements IRC2{
 
 	@EventLog(indexed=1)
 	protected void BlacklistAddress(Address address, String note){}
-
-
-	//TODO: looks like this method can be moved into the constructor
-	//def on_install(self, _initialSupply: int, _decimals: int) -> None:
 
 	//TODO: not sure where it should live, perhaps we should test the update scenario locally and see what happens
 	//from py docs: Invoked when the contract is deployed for update This is the place where you migrate old states.
@@ -177,41 +195,41 @@ public class TapToken implements IRC2{
 
 	@Override
 	@External(readonly=true)
-	public BigInteger balanceOf(Address owner) {
-		return this.balances.getOrDefault(owner, BigInteger.ZERO);
+	public BigInteger balanceOf(Address _owner) {
+		return this.balances.getOrDefault(_owner, BigInteger.ZERO);
 	}
 
 	@External(readonly=true)
-	public BigInteger availableBalanceOf(Address owner) {
-		var detailBalance = detailsBalanceOf(owner);
+	public BigInteger available_balance_of(Address _owner) {
+		var detailBalance = details_balanceOf(_owner);
 		return detailBalance.getOrDefault("Available balance", BigInteger.ZERO);
 	}
 
 	@External(readonly=true)
-	public BigInteger stakedBalanceOf(Address owner) {
+	public BigInteger staked_balance_of(Address _owner) {
 		return this.stakedBalances
-				.getOrDefault(owner, Status.EMPTY_STATUS_ARRAY)
+				.getOrDefault(_owner, Status.EMPTY_STATUS_ARRAY)
 				[Status.STAKED];
 	}
 
 	@External(readonly=true)
-	public BigInteger unstakedBalanceOf(Address owner) {
-		Map<String, BigInteger> detailBalance = detailsBalanceOf(owner);
+	public BigInteger unstaked_balance_of(Address _owner) {
+		Map<String, BigInteger> detailBalance = details_balanceOf(_owner);
 		return detailBalance.get("Unstaking balance");
 	}
 
 	@External(readonly=true)
-	public BigInteger totalStakedBalance() {
+	public BigInteger total_staked_balance() {
 		return this.totalStakedBalance.get();
 	}
 
 	@External(readonly=true)
-	public Boolean stakingEnabled() {
+	public Boolean staking_enabled() {
 		return this.stakingEnabled.get();
 	}
 
 	@External(readonly=true)
-	public Boolean switchDivsToStakedTapEnabled() {
+	public Boolean switch_divs_to_staked_tap_enabled() {
 		return this.switchDivsToStakedTapEnabled.get();
 	}
 
@@ -222,18 +240,18 @@ public class TapToken implements IRC2{
 
 	//TODO:honor method name convention as snake
 	@External(readonly=true)
-	public Map<String, BigInteger> detailsBalanceOf(Address owner) {
+	public Map<String, BigInteger> details_balanceOf(Address _owner) {
 
 		//Context.getBlockTimestamp() -- > self.now()
 		BigInteger currUnstaked = BigInteger.ZERO;
-		BigInteger[] sb = this.stakedBalances.getOrDefault(owner, Status.EMPTY_STATUS_ARRAY);
+		BigInteger[] sb = this.stakedBalances.getOrDefault(_owner, Status.EMPTY_STATUS_ARRAY);
 		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
 			currUnstaked = sb[Status.UNSTAKING];
 		}
 
 		BigInteger availableBalance;
-		if (this.firstTime(owner)) {
-			availableBalance = this.balanceOf(owner);
+		if (this.firstTime(_owner)) {
+			availableBalance = this.balanceOf(_owner);
 		}else {
 			availableBalance = sb[Status.AVAILABLE];
 		}
@@ -248,7 +266,7 @@ public class TapToken implements IRC2{
 
 		Map<String, BigInteger> map = new HashMap<>();
 
-		map.put("Total balance", this.balances.get(owner));
+		map.put("Total balance", this.balances.get(_owner));
 		map.put("Available balance", availableBalance.add( currUnstaked) );
 		map.put("Staked balance", sb[Status.STAKED]);
 		map.put("Unstaking balance", unstakingAmount);
@@ -286,13 +304,13 @@ public class TapToken implements IRC2{
 	}
 
 	@External
-	public void toggleStakingEnabled() {
+	public void toggle_staking_enabled() {
 		this.ownerOnly();
 		this.stakingEnabled.set(! this.stakingEnabled.getOrDefault(false));
 	}
 
 	@External
-	public void toggleSwitchDivsToStakedTapEnabled() {
+	public void toggle_switch_divs_to_staked_tap_enabled() {
 		this.ownerOnly();
 		this.switchDivsToStakedTapEnabled.set(! this.switchDivsToStakedTapEnabled.getOrDefault(false));
 	}
@@ -304,25 +322,25 @@ public class TapToken implements IRC2{
 	}
 
 	@External
-	public void stake(BigInteger value) {
+	public void stake(BigInteger _value) {
 		this.stakingEnabledOnly();
 
 		//TODO: caller or Origin?
 		Address from = Context.getCaller();
-		if( value == null) {
+		if( _value == null) {
 			Context.revert("Staked TAP value can't be less than zero");
 		}
-		if (value.compareTo(BigInteger.ZERO) < 0) {
+		if (_value.compareTo(BigInteger.ZERO) < 0) {
 			Context.revert("Staked TAP value can't be less than zero");
 		}
 
-		if (value.compareTo(
+		if (_value.compareTo(
 				this.balances.getOrDefault(from, BigInteger.ZERO) ) > 0 ) {
 			Context.revert("Out of TAP balance");
 		}
 
-		if (value.compareTo(this.minimumStake.getOrDefault(BigInteger.ZERO)) < 0
-				&& value.compareTo(BigInteger.ZERO) != 0) {
+		if (_value.compareTo(this.minimumStake.getOrDefault(BigInteger.ZERO)) < 0
+				&& _value.compareTo(BigInteger.ZERO) != 0) {
 			Context.revert("Staked TAP must be greater than the minimum stake amount and non zero");
 		}
 		this.checkFirstTime(from);
@@ -338,9 +356,9 @@ public class TapToken implements IRC2{
 		BigInteger[] sb = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
 		BigInteger oldStake = sb[Status.STAKED].add( sb[Status.UNSTAKING]);
 		//big integer is immutable, not need this next line
-		BigInteger newStake = value;
+		BigInteger newStake = _value;
 
-		BigInteger stakeIncrement = value.subtract( sb[Status.STAKED]);
+		BigInteger stakeIncrement = _value.subtract( sb[Status.STAKED]);
 		BigInteger unstakeAmount = BigInteger.ZERO;
 		if (newStake.compareTo(oldStake) > 0 ) {
 			BigInteger offset = newStake.subtract(oldStake);
@@ -349,7 +367,7 @@ public class TapToken implements IRC2{
 			unstakeAmount = oldStake.subtract(newStake);
 		}
 
-		sb[Status.STAKED] = value;
+		sb[Status.STAKED] = _value;
 		sb[Status.UNSTAKING] = unstakeAmount;
 		sb[Status.UNSTAKING_PERIOD] = BigInteger.valueOf( Context.getBlockTimestamp())
 				.add( this.unstakingPeriod.getOrDefault(BigInteger.ZERO));
@@ -361,7 +379,7 @@ public class TapToken implements IRC2{
 
 	@Override
 	@External
-	public void transfer(Address to, BigInteger value, byte[] data) {
+	public void transfer(Address _to, BigInteger _value, byte[] _data) {
 		//TODO: review all the loops that are use for searching
 		//create a util method for this section of code.
 		boolean found = false;
@@ -390,10 +408,10 @@ public class TapToken implements IRC2{
 			Context.revert("Transfer of TAP has been locked for this address.");
 		}
 
-		if (data == null || data.length == 0) {
-			data = "None".getBytes();
+		if (_data == null || _data.length == 0) {
+			_data = "None".getBytes();
 		}
-		this._transfer(Context.getCaller(), to, value, data);
+		this._transfer(Context.getCaller(), _to, _value, _data);
 	}
 
 	private void _transfer(Address from, Address to, BigInteger value, byte[] data) {
@@ -475,49 +493,49 @@ public class TapToken implements IRC2{
 	}
 
 	@External
-	public void set_minimum_stake(BigInteger amount) {
+	public void set_minimum_stake(BigInteger _amount) {
 		/*
         Set the minimum stake amount
         :param _amount: Minimum amount of stake needed.
 		 */
 		this.ownerOnly();
-		if ( amount == null || amount.compareTo(BigInteger.ZERO) < 0) {
+		if ( _amount == null || _amount.compareTo(BigInteger.ZERO) < 0) {
 			Context.revert("Amount cannot be less than zero");
 		}
 
 		//TODO: verify this operation
-		BigInteger totalAmount = amount.pow(this.decimals.getOrDefault(BigInteger.ONE).intValue());
+		BigInteger totalAmount = _amount.pow(this.decimals.getOrDefault(BigInteger.ONE).intValue());
 		this.minimumStake.set(totalAmount);
 	}
 
 
 	@External
-	public void set_unstaking_period(BigInteger time){
+	public void set_unstaking_period(BigInteger _time){
 		/*
         Set the minimum staking period
         :param _time: Staking time period in days.
 		 */
 
 		this.ownerOnly();
-		if (time == null || time.compareTo(BigInteger.ZERO) < 0 ) {
+		if (_time == null || _time.compareTo(BigInteger.ZERO) < 0 ) {
 			Context.revert("Time cannot be negative.");
 		}
-		BigInteger totalTime = time.multiply( BigInteger.valueOf(DAY_TO_MICROSECOND));  // convert days to microseconds
+		BigInteger totalTime = _time.multiply( BigInteger.valueOf(DAY_TO_MICROSECOND));  // convert days to microseconds
 		this.unstakingPeriod.set(totalTime);
 	}
 
 	@External
-	public void set_max_loop(BigInteger loops) {
+	public void set_max_loop(BigInteger _loops) {
 		/*
         Set the maximum number a for loop can run for any operation
         :param _loops: Maximum number of for loops allowed
         :return:
 		 */
-		if(loops == null) {
-			loops = BigInteger.valueOf(100L);
+		if(_loops == null) {
+			_loops = BigInteger.valueOf(100L);
 		}
 		this.ownerOnly();
-		this.maxLoop.set(loops);
+		this.maxLoop.set(_loops);
 	}
 
 	@External(readonly=true)
@@ -724,7 +742,7 @@ public class TapToken implements IRC2{
 
 		Map<String, BigInteger> detailedBalances = new HashMap<>();
 		for(int i=start; i< end; i++) {
-			detailedBalances.put( stakeChanges.get(i).toString(),  this.stakedBalanceOf(stakeChanges.get(i)));
+			detailedBalances.put( stakeChanges.get(i).toString(),  this.staked_balance_of(stakeChanges.get(i)));
 		}
 		this.indexUpdateStake.set(BigInteger.valueOf(end));
 		return detailedBalances;
@@ -774,8 +792,99 @@ public class TapToken implements IRC2{
 		return addressList;
 	}
 
+	@External
+	public void remove_from_locklist(Address _address) {
+		/*
+        Removes the address from the locklist.
+        Only owner can remove the locklist address
+        :param _address: Address to be removed from locklist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+		 */
+		this.ownerOnly();
+		if (!containsInArrayDb(_address, this.locklist)){
+			Context.revert(_address+" not in locklist address");
+		}
+		this.LocklistAddress(_address, "Removed from Locklist");
+		Address top = this.locklist.pop();
+		if (!top.equals(_address)){
+			for(int i=0; i< this.locklist.size(); i++) {
+				if (this.locklist.get(i).equals(_address)){
+					this.locklist.set(i, top);
+				}
+			}
+		}
+	}
 
+	@External
+	public void set_locklist_address(Address _address) {
+		/*
+        Add address to list of addresses that cannot transfer TAP.
+        Only the owner can set the locklist address
+        :param _address: Address to be included in the locklist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+		 */
+		this.ownerOnly();
+		this.stakingEnabledOnly();
 
+		this.LocklistAddress(_address, "Added to Locklist");
+		if ( !containsInArrayDb(_address, this.locklist)) {
+			this.locklist.add(_address);
+		}
+
+		// Unstake TAP of locklist address
+		BigInteger stakedBalance = this.stakedBalances.getOrDefault(_address, Status.EMPTY_STATUS_ARRAY)[Status.STAKED];
+		if (stakedBalance.compareTo(BigInteger.ZERO) > 0) {
+			// Check if the unstaking period has already been reached.
+			this.makeAvailable(_address);
+			BigInteger[] sb = this.stakedBalances.getOrDefault(_address, Status.EMPTY_STATUS_ARRAY);
+			sb[Status.STAKED] = BigInteger.ZERO;
+			sb[Status.UNSTAKING] = sb[Status.UNSTAKING].add(stakedBalance);
+			sb[Status.UNSTAKING_PERIOD] = this.unstakingPeriod.get().add(BigInteger.valueOf(Context.getBlockTimestamp()));
+			this.totalStakedBalance.set( this.totalStakedBalance.getOrDefault(BigInteger.ZERO).subtract(stakedBalance ));
+			ArrayDB<Address> stakeAddressChanges = this.stakeChanges.get(this.stakeAddressUpdateDb.get());
+			stakeAddressChanges.add(_address);
+		}
+	}
+
+	@External(readonly=true)
+	public List<Address> get_whitelist_addresses() {
+		/*
+        Returns all addresses whitelisted during pause.
+        :return: List of whitelisted addresses
+        :rtype: list
+		 */
+		List<Address> addressList = new ArrayList<>();
+		for(int i=0; i < this.pauseWhitelist.size(); i++) {
+			addressList.add(this.pauseWhitelist.get(i));
+		}
+		return addressList;
+	}
+
+	@External
+	public void remove_from_whitelist(Address _address) {
+		/*
+        Removes the address from whitelist.
+        Only owner can remove the whitelist address
+        :param _address: Address to be removed from whitelist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+		 */
+		this.ownerOnly();
+		if (!containsInArrayDb(_address, this.pauseWhitelist)) {
+			Context.revert(_address+ " not in whitelist address");
+		}
+		this.WhitelistAddress(_address, "Removed from whitelist");
+		Address top = this.pauseWhitelist.pop();
+		if (!top.equals(_address)) {
+			for(int i=0; i< this.pauseWhitelist.size(); i++) {
+				if (this.pauseWhitelist.get(i).equals(_address)) {
+					this.pauseWhitelist.set(i,top);
+				}
+			}
+		}
+	}
 
 	private <T> boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
