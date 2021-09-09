@@ -20,7 +20,7 @@ import score.annotation.External;
 public class TapToken implements IRC2{
 	protected static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
 
-	private static final String TAG = "TapToken";
+	public static final String TAG = "TapToken";
 	//TODO: verify this value exists as long and not as biginteger
 	private static final long DAY_TO_MICROSECOND = (long) Math.pow( 24*60*60, 6);
 	private static final String BALANCES = "balances";
@@ -190,7 +190,7 @@ public class TapToken implements IRC2{
 	@Override
 	@External(readonly=true)
 	public BigInteger totalSupply() {
-		return this.totalSupply.get();
+		return this.totalSupply.getOrDefault(BigInteger.ZERO);
 	}
 
 	@Override
@@ -215,27 +215,27 @@ public class TapToken implements IRC2{
 	@External(readonly=true)
 	public BigInteger unstaked_balance_of(Address _owner) {
 		Map<String, BigInteger> detailBalance = details_balanceOf(_owner);
-		return detailBalance.get("Unstaking balance");
+		return detailBalance.getOrDefault("Unstaking balance", BigInteger.ZERO);
 	}
 
 	@External(readonly=true)
 	public BigInteger total_staked_balance() {
-		return this.totalStakedBalance.get();
+		return this.totalStakedBalance.getOrDefault(BigInteger.ZERO);
 	}
 
 	@External(readonly=true)
 	public Boolean staking_enabled() {
-		return this.stakingEnabled.get();
+		return this.stakingEnabled.getOrDefault(false);
 	}
 
 	@External(readonly=true)
 	public Boolean switch_divs_to_staked_tap_enabled() {
-		return this.switchDivsToStakedTapEnabled.get();
+		return this.switchDivsToStakedTapEnabled.getOrDefault(false);
 	}
 
 	@External(readonly=true)
 	public Boolean getPaused() {
-		return this.paused.get();
+		return this.paused.getOrDefault(false);
 	}
 
 	//TODO:honor method name convention as snake
@@ -287,7 +287,7 @@ public class TapToken implements IRC2{
 	private void checkFirstTime(Address from) {
 		//If first time copy the balance to available staked balances
 		if (this.firstTime(from)){
-			this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY)[Status.AVAILABLE] = this.balances.get(from);
+			this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY)[Status.AVAILABLE] = this.balances.getOrDefault(from, BigInteger.ZERO);
 		}
 	}
 
@@ -325,7 +325,6 @@ public class TapToken implements IRC2{
 	public void stake(BigInteger _value) {
 		this.stakingEnabledOnly();
 
-		//TODO: caller or Origin?
 		Address from = Context.getCaller();
 		if( _value == null) {
 			Context.revert("Staked TAP value can't be less than zero");
@@ -381,29 +380,13 @@ public class TapToken implements IRC2{
 	@External
 	public void transfer(Address _to, BigInteger _value, byte[] _data) {
 		//TODO: review all the loops that are use for searching
-		//create a util method for this section of code.
-		boolean found = false;
-		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
-			if(this.pauseWhitelist.get(i) != null 
-					&& this.pauseWhitelist.get(i).equals(Context.getCaller())) {
-				found = true;
-				break;
-			}
-		}
 
-		if(this.paused.get() && !found) {
+		boolean found = containsInArrayDb(Context.getCaller(), this.pauseWhitelist);
+		if(this.paused.getOrDefault(false) && !found) {
 			Context.revert("TAP token transfers are paused.");
 		}
 
-		found = false;
-		for(int i = 0; i< this.pauseWhitelist.size(); i++) {
-			if(this.locklist.get(i) != null 
-					&& this.locklist.get(i).equals(Context.getCaller())) {
-				found = true;
-				break;
-			}
-		}
-
+		found = containsInArrayDb(Context.getCaller(), locklist);
 		if (found) {
 			Context.revert("Transfer of TAP has been locked for this address.");
 		}
@@ -421,8 +404,7 @@ public class TapToken implements IRC2{
 			Context.revert("Transferring value cannot be less than zero");
 		}
 
-		BigInteger balanceFrom = this.balances.get(from);
-		BigInteger balanceTo = this.balances.get(to);
+		BigInteger balanceFrom = this.balances.getOrDefault(from, BigInteger.ZERO);
 		if ( balanceFrom.compareTo(value) < 0) {
 			Context.revert("Out of balance");
 		}
@@ -431,14 +413,16 @@ public class TapToken implements IRC2{
 		this.makeAvailable(to);
 		this.makeAvailable(from);
 
-		BigInteger[] sbFrom = this.stakedBalances.get(from);
-		BigInteger[] sbTo = this.stakedBalances.get(to);
+		BigInteger[] sbFrom = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
+		BigInteger[] sbTo = this.stakedBalances.getOrDefault(to, Status.EMPTY_STATUS_ARRAY);
 		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
 			Context.revert("Out of available balance");
 		}
 
-		balanceFrom = balanceFrom.subtract(value);
-		balanceTo = balanceTo.add(value);
+		this.balances.set(from, balanceFrom.subtract(value));
+
+		BigInteger balanceTo = this.balances.getOrDefault(to, BigInteger.ZERO);
+		this.balances.set(to, balanceTo.add(value));
 
 		sbFrom[Status.AVAILABLE] = (sbFrom[Status.AVAILABLE].subtract(value));
 		sbTo[Status.AVAILABLE] = (sbTo[Status.AVAILABLE].add(value));
@@ -469,7 +453,6 @@ public class TapToken implements IRC2{
 	}
 
 	private void ownerOnly() {
-		//TODO: there is a method called Context.getOrigin()
 		//this method works for first time call, test this scenario
 		if (!Context.getCaller().equals(Context.getOwner())) {
 			Context.revert("Only owner can call this method");
@@ -885,6 +868,22 @@ public class TapToken implements IRC2{
 			}
 		}
 	}
+
+    @External
+    public void set_whitelist_address(Address _address) {
+        /*
+        Add address to list of addresses exempt from transfer pause.
+        Only the owner can set the whitelist address
+        :param _address: Address to be included in the whitelist
+        :type _address: :class:`iconservice.base.address.Address`
+        :return:
+        */
+        this.ownerOnly();
+        this.WhitelistAddress(_address, "Added to Pause Whitelist");
+        if ( !containsInArrayDb(_address, this.pauseWhitelist)) {
+            this.pauseWhitelist.add(_address);
+        }
+    }
 
 	private <T> boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
