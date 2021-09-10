@@ -5,6 +5,8 @@ dependencies {
     //needed to check why this lib is needed
     implementation 'com.github.sink772:javaee-tokens:0.6.0'
     implementation 'com.github.sink772:minimal-json:0.9.6'
+    implementation 'com.github.sink772:javaee-scorex:0.5.2'
+
 
     testImplementation 'foundation.icon:javaee-unittest:0.9.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
