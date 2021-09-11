@@ -125,7 +125,7 @@ public class TapToken implements IRC2{
 		//TODO: make sure iconbet do not want decimals a biginteger like 2^2147483647 decimals
 		//in terms of value, having it as datatype is ok
 		//(having decimals as biginteger does not make sense)
-		BigInteger totalSupply = _initialSupply.multiply( BigInteger.valueOf(10).pow(_decimals.intValue()) );
+		BigInteger totalSupply = _initialSupply.multiply( BigInteger.TEN.pow(_decimals.intValue()) );
 		Context.println(TAG+" : total_supply "+ totalSupply );
 
 		this.totalSupply.set(totalSupply);
@@ -207,9 +207,7 @@ public class TapToken implements IRC2{
 
 	@External(readonly=true)
 	public BigInteger staked_balance_of(Address _owner) {
-		return this.stakedBalances
-				.getOrDefault(_owner, Status.EMPTY_STATUS_ARRAY)
-				[Status.STAKED];
+		return getStakedBalancesReadOnly(_owner)[Status.STAKED];
 	}
 
 	@External(readonly=true)
@@ -244,13 +242,13 @@ public class TapToken implements IRC2{
 
 		//Context.getBlockTimestamp() -- > self.now()
 		BigInteger currUnstaked = BigInteger.ZERO;
-		BigInteger[] sb = this.stakedBalances.getOrDefault(_owner, Status.EMPTY_STATUS_ARRAY);
+		BigInteger[] sb = getStakedBalancesReadOnly(_owner);
 		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
 			currUnstaked = sb[Status.UNSTAKING];
 		}
 
 		BigInteger availableBalance;
-		if (this.firstTime(_owner)) {
+		if (this.firstTimeReadOnly(_owner)) {
 			availableBalance = this.balanceOf(_owner);
 		}else {
 			availableBalance = sb[Status.AVAILABLE];
@@ -266,7 +264,7 @@ public class TapToken implements IRC2{
 
 		Map<String, BigInteger> map = new HashMap<>();
 
-		map.put("Total balance", this.balances.get(_owner));
+		map.put("Total balance", this.balances.getOrDefault(_owner, BigInteger.ZERO));
 		map.put("Available balance", availableBalance.add( currUnstaked) );
 		map.put("Staked balance", sb[Status.STAKED]);
 		map.put("Unstaking balance", unstakingAmount);
@@ -275,8 +273,17 @@ public class TapToken implements IRC2{
 		return map;
 	}
 
-	private Boolean firstTime(Address from) {
-		BigInteger[] sb = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
+	private boolean firstTime(Address from) {
+		BigInteger[] sb = getStakedBalances(from);
+		return
+				sb[Status.AVAILABLE].compareTo(BigInteger.ZERO) == 0
+				&& sb[Status.STAKED].compareTo(BigInteger.ZERO) == 0
+				&& sb[Status.UNSTAKING].compareTo(BigInteger.ZERO) == 0
+				&& this.balances.getOrDefault(from, BigInteger.ZERO).compareTo(BigInteger.ZERO) != 0;
+	}
+
+	private boolean firstTimeReadOnly(Address from) {
+		BigInteger[] sb = getStakedBalancesReadOnly(from);
 		return
 				sb[Status.AVAILABLE].compareTo(BigInteger.ZERO) == 0
 				&& sb[Status.STAKED].compareTo(BigInteger.ZERO) == 0
@@ -287,7 +294,7 @@ public class TapToken implements IRC2{
 	private void checkFirstTime(Address from) {
 		//If first time copy the balance to available staked balances
 		if (this.firstTime(from)){
-			this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY)[Status.AVAILABLE] = this.balances.getOrDefault(from, BigInteger.ZERO);
+			getStakedBalances(from)[Status.AVAILABLE] = this.balances.getOrDefault(from, BigInteger.ZERO);
 		}
 	}
 
@@ -346,13 +353,11 @@ public class TapToken implements IRC2{
 		// Check if the unstaking period has already been reached.
 		this.makeAvailable(from);
 
-		for(int i = 0; i < this.locklist.size(); i++ ) {
-			if ( this.locklist.get(i).equals(from)) {
-				Context.revert("Locked address not permitted to stake.");
-			}
+		if( containsInArrayDb(from, locklist)) {
+			Context.revert("Locked address not permitted to stake.");
 		}
 
-		BigInteger[] sb = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
+		BigInteger[] sb = getStakedBalances(from);
 		BigInteger oldStake = sb[Status.STAKED].add( sb[Status.UNSTAKING]);
 		//big integer is immutable, not need this next line
 		BigInteger newStake = _value;
@@ -408,13 +413,15 @@ public class TapToken implements IRC2{
 		if ( balanceFrom.compareTo(value) < 0) {
 			Context.revert("Out of balance");
 		}
+
 		this.checkFirstTime(from);
 		this.checkFirstTime(to);
 		this.makeAvailable(to);
 		this.makeAvailable(from);
 
-		BigInteger[] sbFrom = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
-		BigInteger[] sbTo = this.stakedBalances.getOrDefault(to, Status.EMPTY_STATUS_ARRAY);
+		BigInteger[] sbFrom = getStakedBalances(from);
+		BigInteger[] sbTo = getStakedBalances(to);
+
 		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
 			Context.revert("Out of available balance");
 		}
@@ -467,7 +474,9 @@ public class TapToken implements IRC2{
 
 	private void makeAvailable(Address from) {
 		// Check if the unstaking period has already been reached.
-		BigInteger[] sb = this.stakedBalances.getOrDefault(from, Status.EMPTY_STATUS_ARRAY);
+
+		BigInteger[] sb = getStakedBalances(from);
+
 		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp()) ) <= 0 ) {
 			BigInteger currUnstaked = sb[Status.UNSTAKING];
 			sb[Status.UNSTAKING] = BigInteger.ZERO;
@@ -817,11 +826,11 @@ public class TapToken implements IRC2{
 		}
 
 		// Unstake TAP of locklist address
-		BigInteger stakedBalance = this.stakedBalances.getOrDefault(_address, Status.EMPTY_STATUS_ARRAY)[Status.STAKED];
+		BigInteger stakedBalance = getStakedBalances(_address)[Status.STAKED];
 		if (stakedBalance.compareTo(BigInteger.ZERO) > 0) {
 			// Check if the unstaking period has already been reached.
 			this.makeAvailable(_address);
-			BigInteger[] sb = this.stakedBalances.getOrDefault(_address, Status.EMPTY_STATUS_ARRAY);
+			BigInteger[] sb = getStakedBalances(_address);
 			sb[Status.STAKED] = BigInteger.ZERO;
 			sb[Status.UNSTAKING] = sb[Status.UNSTAKING].add(stakedBalance);
 			sb[Status.UNSTAKING_PERIOD] = this.unstakingPeriod.get().add(BigInteger.valueOf(Context.getBlockTimestamp()));
@@ -901,4 +910,26 @@ public class TapToken implements IRC2{
 		return found;
 	}
 
+	private DictDB<Address, BigInteger[]> getInitStakedBalancesFor(Address owner) {
+		BigInteger[] value = this.stakedBalances.get(owner);
+		if(value == null) {
+			this.stakedBalances.set(owner, new BigInteger[]
+					{BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO});
+		}
+		return this.stakedBalances;
+	}
+
+	private BigInteger[] getStakedBalances(Address owner) {
+		var sb = getInitStakedBalancesFor(owner);
+		return sb.get(owner);
+	}
+
+	private BigInteger[] getStakedBalancesReadOnly(Address owner) {
+		BigInteger[] value = this.stakedBalances.get(owner);
+		if(value == null) {
+			return new BigInteger[]
+					{BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO};
+		}
+		return value;
+	}
 }
