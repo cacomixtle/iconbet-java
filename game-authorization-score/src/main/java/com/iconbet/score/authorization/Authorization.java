@@ -20,10 +20,7 @@ import score.annotation.EventLog;
 import score.annotation.External;
 import score.annotation.Payable;
 
-import com.iconloop.score.token.irc2.IRC2;
-
-
-public class Authorization implements IRC2{
+public class Authorization{
 	
 
 	//question ?? how to implement this?
@@ -35,12 +32,6 @@ public class Authorization implements IRC2{
 	        
 	        ***/
 	
-	       /***
-	        *  //question ?? instal == constructor?	    	
-	  	  def on_install(self) -> None:
-	  	        super().on_install()
-	  	        self._day.set(self.now() // U_SECONDS_DAY)
-	      ***/
 	public Authorization() {
 		
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
@@ -108,45 +99,16 @@ public class Authorization implements IRC2{
 	private final VarDB<Boolean> apply_watch_dog_method = Context.newVarDB(APPLY_WATCH_DOG_METHOD, Boolean.class);
 	private final DictDB<Address,BigInteger> maximum_payouts = Context.newDictDB(MAXIMUM_PAYOUTS, BigInteger.class);
 	private final VarDB<BigInteger> maximum_loss = Context.newVarDB(MAXIMUM_LOSS, BigInteger.class);
-
-	  
-
-	@Override
-	public String name() {
-		return null;
-	}
-	@Override
-	public String symbol() {
-		return null;
-	}
-	@Override
-	public int decimals() {
-		return 0;
-	}
-	@Override
-	public BigInteger totalSupply() {
-		return null;
-	}
-	@Override
-	public BigInteger balanceOf(Address _owner) {
-		return null;
-	}
-	
-	@Override
-	@EventLog(indexed=2)
-	public void transfer(Address to, BigInteger value, byte[] data) {}
-	
-	@Override
-	@EventLog(indexed=2)
-	public void Transfer(Address from, Address to, BigInteger value, byte[] data) {}
-	
+	        
+	@EventLog(indexed=2) 
+	public void FundTransfer(Address recipient, BigInteger amount, String note) {}     
+	        
 	@EventLog(indexed=2)
 	public void ProposalSubmitted(Address sender, Address scoreAddress) {}
 	
 	@EventLog(indexed=1)
 	public void GameSuspended(Address scoreAddress, String note) {}
 
-	
 	@External
 	public void untether() {
 		/*
@@ -581,9 +543,7 @@ public class Authorization implements IRC2{
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());
 		BigInteger day = now.divide(U_SECONDS_DAY);
-		
-		//Question ? day.intValue() number of the day	
-		
+			
 		BigInteger wagerValue = getWager(game)[day.intValue()];
 		getWager(game)[day.intValue()] = wagerValue.add(wager);
 		
@@ -616,7 +576,7 @@ public class Authorization implements IRC2{
 		 
 		for (int i= 0; i< this.get_approved_games().size(); i++ ) {
 			Address game = this.get_approved_games().get(i);
-			wagers.get(game)[i] = getWager(game)[day.intValue()];
+			wagers.get(game)[i] = getWagerReadOnly(game)[day.intValue()];
 		}
 		return wagers;
 	}
@@ -672,8 +632,6 @@ public class Authorization implements IRC2{
 		
 		BigInteger newPayOut = getPayOut(game).get(day.intValue());
 		getPayOut(game).set(day.intValue(), newPayOut.add(payout));
-		
-		//this.payouts.get(game)[day.intValue()] = newPayOut.add(payout);
 
 		if ( this.new_div_changing_time.get() != null && 
 				this.new_div_changing_time.get().compareTo(BigInteger.ZERO) != 0 &&
@@ -704,7 +662,7 @@ public class Authorization implements IRC2{
 
 		for (int i=0; i<this.get_approved_games().size(); i++) {
 			Address game = this.get_approved_games().get(i);
-			payouts.get(game)[i] = getPayOut(game).get(day.intValue());
+			payouts.get(game)[i] = getPayOutReadOnly(game).get(day.intValue());
 		}
 		return payouts;
 	}
@@ -854,7 +812,6 @@ public class Authorization implements IRC2{
 			Address game = this.get_approved_games().get(i);
 			BigInteger game_excess =  this.todays_games_excess.get(game);
 			getGamesExcessHistory(game).set(day.intValue() - 1 , game_excess);
-			//this.games_excess_history.get(game)[day.intValue() - 1 ] = game_excess;
 			if (game_excess!= null &&
 					game_excess.compareTo(BigInteger.ZERO)>= 0) {
 				positive_excess = positive_excess.add(game_excess);
@@ -907,8 +864,7 @@ public class Authorization implements IRC2{
 		DictDB<Address, BigInteger[]> games_excess = Context.newDictDB("games_excess", BigInteger[].class);
 		for(int i= 0; i< this.get_approved_games().size(); i++) {
 			Address game = this.get_approved_games().get(i);
-			games_excess.get(game)[i] = getGamesExcessHistory(game).get(day.intValue());
-			//games_excess.get(game)[i] = this.games_excess_history.get(game)[day.intValue()];
+			games_excess.get(game)[i] = getGamesExcessHistoryReadOnly(game).get(day.intValue());
 		}
 		
 		return games_excess;
@@ -928,12 +884,6 @@ public class Authorization implements IRC2{
 	}
 	
 	
-/***	
-	// question ?? how to implement this?
-	   @payable
-	    def fallback(self):
-	        pass
-***/
 	@Payable
 	public void fallback() {}
 	
@@ -1052,7 +1002,14 @@ public class Authorization implements IRC2{
 		return this.games_excess_history.get(game);
 	}
 	
-        
+	private LinkedList<BigInteger> getGamesExcessHistoryReadOnly(Address game){
+		LinkedList<BigInteger> games = this.games_excess_history.get(game);
+		if(games == null) {
+			games = new LinkedList<BigInteger>();
+		}
+		return games;
+	}
+	
 	private LinkedList<BigInteger> getPayOut(Address game){
 		LinkedList<BigInteger> payOut = this.payouts.get(game);
 		if(payOut == null) {
@@ -1062,11 +1019,30 @@ public class Authorization implements IRC2{
 		return this.payouts.get(game);
 	}
 	
+	private LinkedList<BigInteger> getPayOutReadOnly(Address game){
+		LinkedList<BigInteger> payOut = this.payouts.get(game);
+		if(payOut == null) {
+			payOut = new LinkedList<BigInteger>();
+		}
+		return payOut;
+	}
+	
+	
 	private BigInteger[] getWager(Address game) {
 		DictDB<Address, BigInteger[]> initWager = getInitWager(game);
 		return initWager.get(game);
 	}
 	
+	private BigInteger[] getWagerReadOnly(Address game) {
+		BigInteger[] value = this.wagers.get(game);	
+		if (value == null) {
+			value = new BigInteger[365];
+			for(int i= 0; i<=365; i++) {
+				value[i] = BigInteger.ZERO;
+			}
+		}
+		return value;
+	}
 	
 	private DictDB<Address, BigInteger[]> getInitWager(Address game) {
 		
@@ -1080,6 +1056,5 @@ public class Authorization implements IRC2{
 		}
 		return this.wagers;
 	}
-	
 	
 }
