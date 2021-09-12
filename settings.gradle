@@ -1,3 +1,5 @@
 rootProject.name = 'iconbet-java'
 include (
-    'tap-token', 'game-authorization-score')
+    'daolette',
+    'tap-token', 
+    'game-authorization-score')
