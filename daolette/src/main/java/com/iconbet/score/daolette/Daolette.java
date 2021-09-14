@@ -366,6 +366,229 @@ public class Daolette{
 		return mapToJsonString(MULTIPLIERS);
 	}
 
+	/*
+    Returns the reward pool of the ICONbet platform
+    :return: Reward pool of the ICONbet platform
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_excess() {
+		//TODO: this could be negative looks like, is it ok?
+		BigInteger excessToMinTreasury = this._treasury_balance.getOrDefault(BigInteger.ZERO).subtract(this._treasury_min.get());
+
+		if (! this._excess_smoothing_live.get()) {
+			return excessToMinTreasury.subtract( Context.call(BigInteger.class, this._game_auth_score.get(),  "get_excess"));
+		}else {
+			BigInteger thirdPartyGamesExcess = BigInteger.ZERO;
+			Map<String, String> gamesExcess = (Map<String, String>)Context.call(this._game_auth_score.get(),"get_todays_games_excess");
+
+			for (Map.Entry<String,String> gameExcess :gamesExcess.entrySet()) {
+				thirdPartyGamesExcess = thirdPartyGamesExcess.add(new BigInteger(gameExcess.getValue()).max(BigInteger.ZERO));
+			}
+			return excessToMinTreasury.subtract( thirdPartyGamesExcess.multiply(BigInteger.valueOf(20)) ); // 100
+		}
+	}
+
+	/*
+    Returns the total distributed amount from the platform
+    :return: Total distributed excess amount
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_total_distributed() {
+		return this._total_distributed.get();
+	}
+
+	/*
+    Returns the total bets made till date
+    :return: Total bets made till date
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_total_bets() {
+		return this._total_bet_count.get().add(this._daily_bet_count.get());
+	}
+
+	/*
+    Returns the total bets of current day
+    :return: Total bets of current day
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_todays_bet_total() {
+		return this._daily_bet_count.get();
+	}
+
+	/*
+    Returns the treasury minimum value
+    :return: Treasury minimum value
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_treasury_min() {
+		return this._treasury_min.get();
+	}
+
+	/*
+    Returns the bet limit for the number of selected numbers
+    :param n: No. of selected numbers
+    :type n: int
+    :return: Bet limit in loop
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_bet_limit(BigInteger n) {
+		return this._bet_limits.get(n);
+	}
+
+	/*
+    Returns the vote results of dissolving the treasury.
+    :return: Vote result for treasury to be dissolved e.g. [0,0]
+    :rtype: str
+	 */
+	@External(readonly=true)
+	public String get_vote_results() {
+		return "["+this._yes_votes.get()+","+ this._no_votes.get()+"]";
+	}
+
+	/*
+    A function to return the owner of this score.
+    :return: Owner address of this score
+    :rtype: :class:`iconservice.base.address.Address`
+	 */
+	@External(readonly=true)
+	public Address get_score_owner() {
+		return Context.getOwner();
+	}
+
+	/*
+    Returns the number of skipped days. Days are skipped if the distribution is not completed in any previous day.
+    :return: Number of skipped days
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_skipped_days() {
+		return this._skipped_days.get();
+	}
+
+	@External(readonly=true)
+	public BigInteger get_yesterdays_excess() {
+		return this._yesterdays_excess.getOrDefault(BigInteger.ZERO);
+	}
+
+	@External(readonly=true)
+	public Address get_daofund_score() {
+		return this._daofund_score.getOrDefault(ZERO_ADDRESS);
+	}
+
+	@External
+	public void set_daofund_score(Address _score) {
+		if ( ! Context.getCaller().equals(Context.getOwner())) {
+			Context.revert("TREASURY: DAOfund address can only be set by owner");
+		}
+		if ( ! _score.isContract()) {
+			Context.revert("TREASURY: Only contract address is accepted for DAOfund");
+		}
+		this._daofund_score.set(_score);
+	}
+
+	@External
+	@Payable
+	public void send_wager(BigInteger _amount) {
+		if ( Context.getValue().compareTo(_amount) != 0) {
+			Context.revert("ICX sent and the amount in the parameters are not same");
+		}
+		this._take_wager(Context.getCaller(),_amount);
+	}
+
+	@External
+	@Payable
+	public void send_rake(BigInteger _wager, BigInteger _payout) {
+		if  ( Context.getValue().compareTo(_wager.subtract(_payout)) != 0 ) {
+			Context.revert("ICX sent and the amount in the parameters are not same");
+		}
+		this.take_rake(_wager, _payout);
+	}
+
+	/*
+    Takes wager amount from approved games. The wager amounts are recorded in game authorization score. Checks if
+    the day has been advanced. If the day has advanced the excess amount is transferred to distribution contract.
+    :param _amount: Wager amount to be recorded for excess calculation
+    :return:
+	 */
+	@External
+	public void take_wager(BigInteger _amount) {
+		this._take_wager(Context.getCaller(), _amount);
+	}
+
+	/*
+    Takes wager amount from approved games.
+    :param _game_address: Address of the game
+    :type _game_address: :class:`iconservice.base.address.Address`
+    :param _amount: Wager amount
+    :type _amount: int
+    :return:
+	 */
+	public void _take_wager(Address _game_address, BigInteger _amount) {
+		if (_amount.compareTo(BigInteger.ZERO) <= 0) {
+			Context.revert("Invalid bet amount "+_amount);
+		}
+
+		String gameStatus = Context.call(String.class, this._game_auth_score.get(),  "get_game_status", _game_address);
+
+		if ( !gameStatus.equals("gameApproved")){
+			Context.revert("Bet only accepted through approved games.");
+		}
+
+		if (this.__day_advanced()) {
+			this.__check_for_dividends();
+		}
+		this._daily_bet_count.set(this._daily_bet_count.get().add(BigInteger.ONE));
+
+		Context.call(this._game_auth_score.get(),  "accumulate_daily_wagers", _game_address, _amount);
+
+		Context.println("Sending wager data to rewards score."+ TAG);
+
+		BigInteger days = this._day.get().subtract(this._skipped_days.get()).mod(BigInteger.TWO);
+		Context.call(this._rewards_score.get(),  "accumulate_wagers", Context.getOrigin().toString(), _amount, days);
+
+		this._treasury_balance.set(Context.getBalance(Context.getAddress()));
+	}
+
+	/*
+    Takes wager amount and payout amount data from games which have their own treasury.
+    :param _wager: Wager you want to record in GAS
+    :param _payout: Payout you want to record
+    :return:
+	 */
+	@External
+	public void take_rake(BigInteger _wager, BigInteger _payout) {
+
+		if (_payout.compareTo(BigInteger.ZERO) <= 0) {
+			Context.revert("Payout can't be zero");
+		}
+		this._take_wager(Context.getCaller(), _wager);
+
+		// dry run of wager_payout i.e. make payout without sending ICX
+		String gameStatus = Context.call(String.class, this._game_auth_score.get(),  "get_game_status", Context.getCaller());
+
+		if (! gameStatus.equals("gameApproved")) {
+			Context.revert("Payouts can only be invoked by approved games.");
+		}
+		Context.call(this._game_auth_score.get(), "accumulate_daily_payouts", Context.getCaller(), _payout);
+
+		this._treasury_balance.set(Context.getBalance(Context.getAddress()));
+	}
+
+	public boolean __day_advanced() {
+		return false;
+	}
+
+	public void __check_for_dividends() {
+
+	}
+
+
 	public static <K,V> String mapToJsonString(Map<K, V > map) {
 		StringBuilder sb = new StringBuilder("{");
 		for (Map.Entry<K, V> entry : map.entrySet()) {
@@ -380,4 +603,22 @@ public class Daolette{
 		Context.println(json);
 		return json;
 	}
+
+	private <T> boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
+		boolean found = false;
+		if(arraydb == null || value == null) {
+			return found;
+		}
+
+		for(int i = 0; i< arraydb.size(); i++) {
+			if(arraydb.get(i) != null
+					&& arraydb.get(i).equals(value)) {
+				found = true;
+				break;
+			}
+		}
+		return found;
+	}
+
+
 }
