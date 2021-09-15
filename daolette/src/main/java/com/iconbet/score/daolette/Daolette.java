@@ -1,10 +1,15 @@
 package com.iconbet.score.daolette;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import score.Address;
 import score.ArrayDB;
@@ -97,7 +102,7 @@ public class Daolette{
 	private VarDB<Address> _rewards_score = Context.newVarDB(this._REWARDS_SCORE, Address.class);
 	private VarDB<Address> _dividends_score = Context.newVarDB(this._DIVIDENDS_SCORE, Address.class);
 
-	private DictDB<Address, String> _vote = Context.newDictDB(this._VOTE, String.class);
+	private DictDB<String, String> _vote = Context.newDictDB(this._VOTE, String.class);
 	private ArrayDB<Address> _voted = Context.newArrayDB(this._VOTED, Address.class);
 	private VarDB<BigInteger> _yes_votes = Context.newVarDB(this._YES_VOTES, BigInteger.class);
 	private VarDB<BigInteger> _no_votes = Context.newVarDB(this._NO_VOTES, BigInteger.class);
@@ -578,6 +583,212 @@ public class Daolette{
 		Context.call(this._game_auth_score.get(), "accumulate_daily_payouts", Context.getCaller(), _payout);
 
 		this._treasury_balance.set(Context.getBalance(Context.getAddress()));
+	}
+
+	/*
+    Makes payout to the player of the approved games. Only the approved games can request payout.
+    :param _payout: Payout to be made to the player
+    :return:
+	 */
+	@External
+	public void wager_payout(BigInteger _payout) {
+		this._wager_payout(Context.getCaller(), _payout);
+	}
+
+	/*
+    Makes payout to the player of the approved games.
+    :param _game_address: Address of the game requesting payout
+    :type _game_address: :class:`iconservice.base.address.Address`
+    :param _payout: Payout to be made to the player
+    :type _payout: int
+    :return:
+	 */
+	public void _wager_payout(Address _game_address, BigInteger _payout) {
+
+		if (_payout.compareTo(BigInteger.ZERO) <= 0) {
+			Context.revert("Invalid payout amount requested "+_payout);
+		}
+		//auth_score = self.create_interface_score(self._game_auth_score.get(), AuthInterface)
+		String gameStatus = Context.call(String.class, this._game_auth_score.get(),  "get_game_status", _game_address);
+
+		if ( !gameStatus.equals("gameApproved")){
+			Context.revert("Payouts can only be invoked by approved games.");
+		}
+
+		boolean accumulated = Context.call(Boolean.class, this._game_auth_score.get(),  "accumulate_daily_payouts", _game_address, _payout);
+
+		if (accumulated) {
+			try {
+				Context.println("Trying to send to ("+Context.getOrigin()+"): "+_payout+" . "+ TAG);
+				Context.transfer(Context.getOrigin(), _payout);
+				this.FundTransfer(Context.getOrigin(), _payout, "Player Winnings from "+ Context.getCaller()+".");
+				Context.println("Sent winner ("+ Context.getOrigin()+") "+_payout+"."+ TAG);
+			}catch(Exception  e) {
+				Context.println("Send failed. Exception: "+e.getMessage()+ " "+ TAG);
+				Context.revert("Network problem. Winnings not sent. Returning funds. Exception: "+ e.getMessage());
+			}
+			this._treasury_balance.set( Context.getBalance(Context.getAddress()) );
+		}
+	}
+
+	/*
+    Takes a list of numbers in the form of a comma separated string. e.g. "1,2,3,4" and user seed
+    :param numbers: Numbers selected
+    :type numbers: strnumset
+    :param user_seed: User seed/ Lucky phrase provided by user which is used in random number calculation
+    :type user_seed: str
+    :return:
+	 */
+	@External
+	@Payable
+	public void bet_on_numbers(String numbers, String user_seed) {
+
+		//TODO: validate well-formed string
+		List<Integer> list = Stream.of(numbers.split(",")).mapToInt(n -> Integer.valueOf(n)).boxed().collect(Collectors.toList());
+		Set<Integer> numSet = Set.of(list.toArray(new Integer[list.size()]));
+
+		if (numSet.equals(SET_RED) || numSet.equals(SET_BLACK)) {
+			this._bet_type.set(BET_TYPES[2]);
+		}else if (numSet.equals(SET_ODD) || numSet.equals(SET_EVEN)){
+			this._bet_type.set(BET_TYPES[3]);
+		}else {
+			this._bet_type.set(BET_TYPES[1]);
+		}
+		this.__bet(numSet, user_seed);
+	}
+
+	/*
+    The bet is set on either red color or black color.
+    :param color: Red Color is chosen if true. Black if false
+    :type color: blue
+    :param user_seed: User seed/ Lucky phrase provided by user which is used in random number calculation
+    :type user_seed: str
+    :return:
+	 */
+	@External
+	@Payable
+	public void bet_on_color(Boolean color, String user_seed) {
+		this._bet_type.set(BET_TYPES[2]);
+		Set<Integer> numbers;
+		if (color) {
+			numbers = WHEEL_RED;
+		}else {
+			numbers = WHEEL_BLACK;
+		}
+		this.__bet(numbers, user_seed);
+	}
+
+	/*
+    The bet is set on either odd or even numbers.
+    :param even_odd: Odd numbers is chosen if true. Even if false.
+    :type even_odd: bool
+    :param user_seed: User seed/ Lucky phrase provided by user which is used in random number calculation
+    :type user_seed: str
+    :return:
+	 */
+	@External
+	@Payable
+	public void bet_on_even_odd(Boolean even_odd, String user_seed) {
+		this._bet_type.set(BET_TYPES[3]);
+		Set<Integer> numbers;
+		if (even_odd) {
+			numbers = WHEEL_ODD;
+		}else {
+			numbers = WHEEL_EVEN;
+		}
+		this.__bet(numbers, user_seed);
+	}
+
+	@External
+	public void untether() {
+		/*
+        A function to redefine the value of self.owner once it is possible.
+        To be included through an update if it is added to IconService.
+        Sets the value of self.owner to the score holding the game treasury.
+		 */
+		if ( !Context.getCaller().equals(Context.getOwner())) {
+			Context.revert("Only the owner can call the untether method.");
+		}
+	}
+
+	/*
+    Vote takes the votes from TAP holders to dissolve the treasury.
+    :param option: Option to select for dissolving the treasury ("yes" | "no")
+    :type option: str
+    :return:
+	 */
+	@External
+	public void vote(String option) {
+
+		List<String> op = Arrays.asList("yes", "no");
+
+		if (!op.contains(option)) {
+			Context.revert("Option must be one of either \"yes\" or \"no\".");
+		}
+
+		//token_score = self.create_interface_score(self._token_score.get(), TokenInterface)
+		Address address = Context.getOrigin();
+		BigInteger balanceOwner = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", address);
+
+		if ( !containsInArrayDb(address, this._voted)
+				&& balanceOwner.equals(BigInteger.ZERO)) {
+			Context.revert("You must either own or be a previous owner of TAP tokens in order to cast a vote.");
+		}
+		this._vote.set(address.toString(), option);
+		if ( !containsInArrayDb(address, this._voted)) {
+			this._voted.add(address);
+			String message = "Recorded vote of "+ address.toString();
+			this.Vote(Context.getCaller(), option, message);
+		}else {
+			String message = address.toString() + " updated vote to "+ option;
+			this.Vote(address, option, message);
+		}
+		if ( !this.vote_result()) {
+			String vote_msg = "Overall Vote remains a 'No'.";
+			this.Vote(address, option, vote_msg);
+		}else {
+			// In case the votes is passed, treasury is dissolved by sending all the balance to distribution contract.
+			// Distribution contract will then distribute 80% to tap holders and 20% to founders.
+			this._open_treasury.set(true);
+			this._excess_to_distribute.set( Context.getBalance(Context.getAddress()));
+			this.__check_for_dividends();
+			String vote_msg = "Vote passed! Treasury balance forwarded to distribution contract.";
+			this.Vote(address, option, vote_msg);
+			this._treasury_min.set(BigInteger.ZERO);
+		}
+	}
+
+	/*
+    Returns the vote result of vote on dissolving the treasury
+    :return: True if majority of votes are yes
+    :rtype: bool
+	 */
+	public boolean vote_result() {
+
+		BigInteger yes = BigInteger.ONE;
+		BigInteger no = BigInteger.ZERO;
+		for (int i=0; i< this._voted.size(); i++){// address in self._voted:
+			Address address = this._voted.get(i);
+			String vote = this._vote.get( address.toString() );
+			BigInteger balance = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", address);
+			if (vote.equals("yes")){
+				yes = yes.add(balance);
+			}else {
+				no = no.add(balance);
+			}
+		}
+		this._yes_votes.set(yes);
+		this._no_votes.set(no);
+		BigInteger totalSupply = Context.call(BigInteger.class, this._token_score.get(), "totalSupply");
+		BigInteger rewardsBalance = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", this._rewards_score.get());
+
+		return this._yes_votes.get().compareTo(
+				totalSupply.subtract(rewardsBalance)
+				) > 0; // 2:
+	}
+
+	public void __bet(Set<Integer> numbers, String user_seed) {
+
 	}
 
 	public boolean __day_advanced() {
