@@ -1,14 +1,17 @@
 package com.iconbet.score.daolette;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import score.Address;
@@ -33,9 +36,9 @@ public class Daolette{
 	private static final BigInteger BET_MIN = new BigInteger("100000000000000000"); // 1.0E+17, .1 ICX
 	private static final BigInteger	U_SECONDS_DAY = BigInteger.valueOf(86400000000L); // Microseconds in a day.
 
-	private static final int TX_MIN_BATCH_SIZE = 10;
-	private static final int TX_MAX_BATCH_SIZE = 500;
-	private static final int DIST_DURATION_PARAM = 50;  // Units of 1/Days
+	private static final BigInteger TX_MIN_BATCH_SIZE = BigInteger.valueOf(10);
+	private static final BigInteger TX_MAX_BATCH_SIZE = BigInteger.valueOf(500);
+	private static final BigInteger DIST_DURATION_PARAM = BigInteger.valueOf(50);  // Units of 1/Days
 
 	private static final String[] BET_TYPES = new String[] {"none", "bet_on_numbers", "bet_on_color", "bet_on_even_odd", "bet_on_number", "number_factor"};
 	private static final Set<Integer> WHEEL_ORDER = new HashSet<>(Arrays.asList(2, 20, 3, 17, 6, 16, 7, 13, 10, 12,
@@ -126,16 +129,16 @@ public class Daolette{
 	public void FundReceived(Address sender, BigInteger amount, String note) {}
 
 	@EventLog(indexed=2)
-	public void BetSource(Address _from, int timestamp){}
+	public void BetSource(Address _from, BigInteger timestamp){}
 
 	@EventLog(indexed=2)
-	public void BetPlaced(int amount, String numbers){}
+	public void BetPlaced(BigInteger amount, String numbers){}
 
 	@EventLog(indexed=2)
 	public void BetResult(String spin, String winningNumber, BigInteger payout){}
 
 	@EventLog(indexed=3)
-	public void DayAdvance(int day, int skipped, int block_time, String note){}
+	public void DayAdvance(BigInteger day, BigInteger skipped, BigInteger block_time, String note){}
 
 	@EventLog(indexed=2)
 	public void Vote(Address _from, String _vote, String note){}
@@ -385,10 +388,13 @@ public class Daolette{
 			return excessToMinTreasury.subtract( Context.call(BigInteger.class, this._game_auth_score.get(),  "get_excess"));
 		}else {
 			BigInteger thirdPartyGamesExcess = BigInteger.ZERO;
+			@SuppressWarnings("unchecked")
 			Map<String, String> gamesExcess = (Map<String, String>)Context.call(this._game_auth_score.get(),"get_todays_games_excess");
 
 			for (Map.Entry<String,String> gameExcess :gamesExcess.entrySet()) {
-				thirdPartyGamesExcess = thirdPartyGamesExcess.add(new BigInteger(gameExcess.getValue()).max(BigInteger.ZERO));
+				thirdPartyGamesExcess = thirdPartyGamesExcess.add(
+						BigInteger.ZERO.max( new BigInteger(gameExcess.getValue()) )
+						);
 			}
 			return excessToMinTreasury.subtract( thirdPartyGamesExcess.multiply(BigInteger.valueOf(20)) ); // 100
 		}
@@ -787,12 +793,132 @@ public class Daolette{
 				) > 0; // 2:
 	}
 
-	public void __bet(Set<Integer> numbers, String user_seed) {
-
+	/*
+    Returns the batch size to be used for distribution according to the number of recipients. Minimum batch size is
+    10 and maximum is 500.
+    :param recip_count: Number of recipients
+    :type recip_count: int
+    :return: Batch size
+    :rtype: int
+	 */
+	@External(readonly=true)
+	public BigInteger get_batch_size(BigInteger recip_count) {
+		Context.println("In get_batch_size."+ TAG);
+		BigInteger yesterdaysCount = this._yesterdays_bet_count.get();
+		if (yesterdaysCount.compareTo(BigInteger.ONE) < 0) {
+			yesterdaysCount = BigInteger.ONE;
+		}
+		BigInteger size = DIST_DURATION_PARAM.multiply(recip_count); // yesterdays_count
+		if (size.compareTo(TX_MIN_BATCH_SIZE) < 0) {
+			size = TX_MIN_BATCH_SIZE;
+		}
+		if (size.compareTo(TX_MAX_BATCH_SIZE) > 0) {
+			size = TX_MAX_BATCH_SIZE;
+		}
+		Context.println("Returning batch size of "+ size + " - "+ TAG);
+		return size;
 	}
 
-	public boolean __day_advanced() {
-		return false;
+	/*
+    Generates a random # from tx hash, block timestamp and user provided
+    seed. The block timestamp provides the source of unpredictability.
+    :param user_seed: 'Lucky phrase' provided by user.
+    :type user_seed: str
+    :return: number from [x / 100000.0 for x in range(100000)] i.e. [0,0.99999]
+    :rtype: float
+	 */
+	public double get_random(String userSeed) {
+		Context.println("Entered get_random. "+ TAG);
+		double spin = 0.0;
+		try {
+			String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getTransactionTimestamp()) + userSeed;
+			spin = ( ByteBuffer.wrap(sha3_256(seed)).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
+		}catch (NoSuchAlgorithmException e) {
+			Context.revert(e.getMessage());
+			return spin;
+		}
+		Context.println("Result of the spin was "+ spin + "-"+ TAG);
+		return spin;
+	}
+
+	/*
+    Checks if day has been advanced nad the TAP distribution as well as dividends distribution has been completed.
+    If the day has advanced and the distribution has completed then the current day is updated, excess is recorded
+    from game authorization score, total bet count is updated and the daily bet count is reset.
+    :return: True if day has advanced and distribution has been completed for previous day
+    :rtype: bool
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean __day_advanced() {
+		Context.println("In __day_advanced method." + TAG);
+		BigInteger currentDay = BigInteger.valueOf(Context.getBlockTimestamp()); // U_SECONDS_DAY
+		BigInteger advance = currentDay.subtract(this._day.get());
+		if (advance.compareTo(BigInteger.ONE) < 0) {
+			return false;
+		}else {
+
+			Boolean rewardsComplete = Context.call(Boolean.class, this._rewards_score.get(), "rewards_dist_complete");
+			Boolean dividendsComplete  = Context.call(Boolean.class, this._dividends_score.get(), "dividends_dist_complete");
+			if (  !rewardsComplete || !dividendsComplete) {
+				String rew = "";
+				String div = "";
+				if (!rewardsComplete) {
+					rew = " Rewards dist is not complete";
+				}
+				if (!dividendsComplete) {
+					div = " Dividends dist is not complete";
+				}
+				this._day.set(currentDay);
+				this._skipped_days.set(this._skipped_days.get().add(advance));
+				this.DayAdvance(this._day.get(), this._skipped_days.get(), BigInteger.valueOf(Context.getBlockTimestamp()),
+						"Skipping a day since "+rew+ " " +div);
+				return false;
+			}
+			// Set excess to distribute
+			BigInteger excessToMinTreasury = this._treasury_balance.getOrDefault(BigInteger.ZERO).subtract(this._treasury_min.get());
+
+			BigInteger developersExcess  = Context.call(BigInteger.class, this._game_auth_score.get(), "record_excess");
+			this._excess_to_distribute.set(developersExcess.add(
+					BigInteger.ZERO.max(
+							excessToMinTreasury.subtract(developersExcess)
+							)
+					));
+
+			if (this._excess_smoothing_live.get()) {
+				BigInteger thirdPartyGamesExcess = BigInteger.ZERO;
+				Map<String, String> gamesExcess = Context.call(Map.class, this._game_auth_score.get(), "get_yesterdays_games_excess");
+				for (Map.Entry<String, String> game : gamesExcess.entrySet()) {
+					thirdPartyGamesExcess = thirdPartyGamesExcess.add(
+							BigInteger.ZERO.max( new BigInteger(game.getValue()) )
+							);
+				}
+				BigInteger partnerDeveloper = thirdPartyGamesExcess.multiply( BigInteger.valueOf(20)); // 100
+				BigInteger rewardPool = BigInteger.ZERO.max(
+						excessToMinTreasury.subtract(partnerDeveloper).multiply( BigInteger.valueOf(90) )
+						);// 100)
+				BigInteger daofund = BigInteger.ZERO.max(
+						excessToMinTreasury.subtract(partnerDeveloper).multiply( BigInteger.valueOf(5))
+						); // 100)
+				this._excess_to_distribute.set(partnerDeveloper.add(rewardPool));
+				this._yesterdays_excess.set(excessToMinTreasury.subtract(partnerDeveloper));
+				this._daofund_to_distirbute.set(daofund);
+			}
+
+			if (advance.compareTo(BigInteger.ONE) > 0) {
+				this._skipped_days.set(this._skipped_days.get().add(advance).subtract(BigInteger.ONE));
+			}
+
+			this._day.set(currentDay);
+			this._total_bet_count.set(this._total_bet_count.get().add(this._daily_bet_count.get()));
+			this._yesterdays_bet_count.set(this._daily_bet_count.get());
+			this._daily_bet_count.set(BigInteger.ZERO);
+			this.DayAdvance(this._day.get(), this._skipped_days.get(), BigInteger.valueOf(Context.getBlockTimestamp()), "Day advanced. Counts reset.");
+			return true;
+		}
+	}
+
+	public void __bet(Set<Integer> numbers, String user_seed) {
+
 	}
 
 	public void __check_for_dividends() {
@@ -831,5 +957,38 @@ public class Daolette{
 		return found;
 	}
 
+	public byte[] sha3_256(String value) throws NoSuchAlgorithmException {
 
+		final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
+		return  digest.digest(
+				value.getBytes(StandardCharsets.UTF_8));
+
+	}
+	/*
+	private static String bytesToHex(byte[] hash) {
+	    StringBuilder hexString = new StringBuilder(2 * hash.length);
+	    for (int i = 0; i < hash.length; i++) {
+	        String hex = Integer.toHexString(0xff & hash[i]);
+	        if(hex.length() == 1) {
+	            hexString.append('0');
+	        }
+	        hexString.append(hex);
+	    }
+	    return hexString.toString();
+	}
+	 */
+	public String encodeHexString(byte[] byteArray) {
+		StringBuffer hexStringBuffer = new StringBuffer();
+		for (int i = 0; i < byteArray.length; i++) {
+			hexStringBuffer.append(byteToHex(byteArray[i]));
+		}
+		return hexStringBuffer.toString();
+	}
+
+	public String byteToHex(byte num) {
+		char[] hexDigits = new char[2];
+		hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
+		hexDigits[1] = Character.forDigit((num & 0xF), 16);
+		return new String(hexDigits);
+	}
 }
