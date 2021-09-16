@@ -112,6 +112,7 @@ public class Daolette{
 	private VarDB<Boolean> _open_treasury = Context.newVarDB(this._OPEN_TREASURY, Boolean.class);
 	private VarDB<Address> _game_auth_score = Context.newVarDB(this._GAME_AUTH_SCORE, Address.class);
 
+	/*TODO: not used*/
 	private VarDB<Boolean> _new_div_live = Context.newVarDB(this._NEW_DIV_LIVE, Boolean.class);
 	private VarDB<BigInteger> _excess_to_distribute = Context.newVarDB(this._EXCESS_TO_DISTRIBUTE, BigInteger.class);
 	private VarDB<BigInteger> _treasury_balance = Context.newVarDB(this._TREASURY_BALANCE, BigInteger.class);
@@ -153,7 +154,7 @@ public class Daolette{
 		this._bet_type.set(BET_TYPES[0]);
 		this._treasury_min.set(TREASURY_MINIMUM);
 		this._set_bet_limit();
-		this._day.set(BigInteger.valueOf(Context.getTransactionTimestamp())); // U_SECONDS_DAY)
+		this._day.set(BigInteger.valueOf(Context.getTransactionTimestamp()).divide(U_SECONDS_DAY));
 		this._skipped_days.set(BigInteger.ZERO);
 		this._total_bet_count.set(BigInteger.ZERO);
 		this._daily_bet_count.set(BigInteger.ZERO);
@@ -319,8 +320,8 @@ public class Daolette{
     :return:
 	 */
 	private void _set_bet_limit() {
-		for(int i: BET_LIMIT_RATIOS) {
-			this._bet_limits.set(BigInteger.valueOf(i), this._treasury_min.get()); // ratio
+		for(int i = 0; i < BET_LIMIT_RATIOS.length; i++) {
+			this._bet_limits.set(BigInteger.valueOf(i), this._treasury_min.get().divide( BigInteger.valueOf(BET_LIMIT_RATIOS[i]) ));
 		}
 	}
 
@@ -336,7 +337,7 @@ public class Daolette{
 
 		if (!this._game_on.get()) {
 			this._game_on.set(true);
-			this._day.set(BigInteger.valueOf(Context.getBlockTimestamp())); // U_SECONDS_DAY)
+			this._day.set(BigInteger.valueOf(Context.getBlockTimestamp()).divide(U_SECONDS_DAY));
 		}
 	}
 
@@ -396,7 +397,7 @@ public class Daolette{
 						BigInteger.ZERO.max( new BigInteger(gameExcess.getValue()) )
 						);
 			}
-			return excessToMinTreasury.subtract( thirdPartyGamesExcess.multiply(BigInteger.valueOf(20)) ); // 100
+			return excessToMinTreasury.subtract( thirdPartyGamesExcess.multiply(BigInteger.valueOf(20)) ).divide(BigInteger.valueOf(100));
 		}
 	}
 
@@ -614,7 +615,7 @@ public class Daolette{
 		if (_payout.compareTo(BigInteger.ZERO) <= 0) {
 			Context.revert("Invalid payout amount requested "+_payout);
 		}
-		//auth_score = self.create_interface_score(self._game_auth_score.get(), AuthInterface)
+
 		String gameStatus = Context.call(String.class, this._game_auth_score.get(),  "get_game_status", _game_address);
 
 		if ( !gameStatus.equals("gameApproved")){
@@ -732,7 +733,6 @@ public class Daolette{
 			Context.revert("Option must be one of either \"yes\" or \"no\".");
 		}
 
-		//token_score = self.create_interface_score(self._token_score.get(), TokenInterface)
 		Address address = Context.getOrigin();
 		BigInteger balanceOwner = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", address);
 
@@ -773,7 +773,7 @@ public class Daolette{
 
 		BigInteger yes = BigInteger.ONE;
 		BigInteger no = BigInteger.ZERO;
-		for (int i=0; i< this._voted.size(); i++){// address in self._voted:
+		for (int i=0; i< this._voted.size(); i++){
 			Address address = this._voted.get(i);
 			String vote = this._vote.get( address.toString() );
 			BigInteger balance = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", address);
@@ -789,8 +789,8 @@ public class Daolette{
 		BigInteger rewardsBalance = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", this._rewards_score.get());
 
 		return this._yes_votes.get().compareTo(
-				totalSupply.subtract(rewardsBalance)
-				) > 0; // 2:
+				totalSupply.subtract(rewardsBalance).divide(BigInteger.TWO)
+				) > 0;
 	}
 
 	/*
@@ -808,7 +808,7 @@ public class Daolette{
 		if (yesterdaysCount.compareTo(BigInteger.ONE) < 0) {
 			yesterdaysCount = BigInteger.ONE;
 		}
-		BigInteger size = DIST_DURATION_PARAM.multiply(recip_count); // yesterdays_count
+		BigInteger size = DIST_DURATION_PARAM.multiply(recip_count).divide(yesterdaysCount);
 		if (size.compareTo(TX_MIN_BATCH_SIZE) < 0) {
 			size = TX_MIN_BATCH_SIZE;
 		}
@@ -851,7 +851,7 @@ public class Daolette{
 	@SuppressWarnings("unchecked")
 	private boolean __day_advanced() {
 		Context.println("In __day_advanced method." + TAG);
-		BigInteger currentDay = BigInteger.valueOf(Context.getBlockTimestamp()); // U_SECONDS_DAY
+		BigInteger currentDay = BigInteger.valueOf(Context.getBlockTimestamp()).divide(U_SECONDS_DAY);
 		BigInteger advance = currentDay.subtract(this._day.get());
 		if (advance.compareTo(BigInteger.ONE) < 0) {
 			return false;
@@ -892,13 +892,13 @@ public class Daolette{
 							BigInteger.ZERO.max( new BigInteger(game.getValue()) )
 							);
 				}
-				BigInteger partnerDeveloper = thirdPartyGamesExcess.multiply( BigInteger.valueOf(20)); // 100
+				BigInteger partnerDeveloper = thirdPartyGamesExcess.multiply( BigInteger.valueOf(20)).divide(BigInteger.valueOf(100));
 				BigInteger rewardPool = BigInteger.ZERO.max(
 						excessToMinTreasury.subtract(partnerDeveloper).multiply( BigInteger.valueOf(90) )
-						);// 100)
+						).divide(BigInteger.valueOf(100));
 				BigInteger daofund = BigInteger.ZERO.max(
 						excessToMinTreasury.subtract(partnerDeveloper).multiply( BigInteger.valueOf(5))
-						); // 100)
+						).divide(BigInteger.valueOf(100));
 				this._excess_to_distribute.set(partnerDeveloper.add(rewardPool));
 				this._yesterdays_excess.set(excessToMinTreasury.subtract(partnerDeveloper));
 				this._daofund_to_distirbute.set(daofund);
@@ -917,14 +917,156 @@ public class Daolette{
 		}
 	}
 
-	public void __bet(Set<Integer> numbers, String user_seed) {
-
-	}
-
+	/*
+    If there is excess in the treasury, transfers to the distribution contract.
+    :return:
+	 */
 	public void __check_for_dividends() {
+		BigInteger excess = this._excess_to_distribute.getOrDefault(BigInteger.ZERO);
+		BigInteger daofund = this._daofund_to_distirbute.getOrDefault(BigInteger.ZERO);
+
+		Context.println("Found treasury excess of "+excess + ". "+ TAG);
+		if (excess.compareTo(BigInteger.ZERO) > 0) {
+			try {
+				Context.println("Trying to send to ("+this._dividends_score.get()+"): "+excess+". "+ TAG);
+				Context.transfer(this._dividends_score.get(), excess);
+				this.FundTransfer(this._dividends_score.get(), excess, "Excess made by games");
+				Context.println("Sent div score ("+this._dividends_score.get()+") "+excess +". "+ TAG);
+				this._total_distributed.set(this._total_distributed.get().add(excess));
+				this._excess_to_distribute.set(BigInteger.ZERO);
+			}catch (Exception e) {
+				Context.println("Send failed. Exception: "+e.getMessage()+ " "+ TAG);
+				Context.revert("Network problem. Excess not sent. Exception:" +e.getMessage());
+			}
+		}
+
+		if (daofund.compareTo(BigInteger.ZERO) > 0) {
+			try {
+				this._daofund_to_distirbute.set(BigInteger.ZERO);
+				Context.transfer(this._daofund_score.get(), daofund);
+				this.FundTransfer(this._daofund_score.get(), daofund, "Excess transerred to daofund");
+			}catch (Exception e) {
+				Context.revert("Network problem. DAOfund not sent. Exception: "+e.getMessage());
+			}
+		}
 
 	}
 
+	/*
+    Takes a list of numbers in the form of a comma separated string and the user seed
+    :param numbers: The numbers which are selected for the bet
+    :type numbers: str
+    :param user_seed: User seed/ Lucky phrase provided by user which is used in random number calculation
+    :type user_seed: str
+    :return:
+	 */
+	public void __bet(Set<Integer> numbers, String user_seed) {
+		this.BetSource(Context.getOrigin(), BigInteger.valueOf(Context.getBlockTimestamp()));
+		if (!this._game_on.get()) {
+			Context.println("Game not active yet. "+ TAG);
+			Context.revert("Game not active yet.");
+		}
+		BigInteger amount = Context.getValue();
+		Context.println("Betting "+amount+" loop on "+numbers+". " +TAG);
+		this.BetPlaced(amount, setToStringEnumerated(numbers));
+		this._take_wager(Context.getAddress(), amount);
+
+		if (numbers.size() == 0) {
+			Context.println("Bet placed without numbers. "+ TAG);
+			Context.revert("Invalid bet. No numbers submitted. Zero win chance. Returning funds.");
+		}else if (numbers.size() > 20) {
+			Context.println("Bet placed with too many numbers. Max numbers = 20. "+ TAG);
+			Context.revert("Invalid bet. Too many numbers submitted. Returning funds.");
+		}
+
+		Set<Integer> numset = new HashSet<>(WHEEL_ORDER);
+		numset.remove(0);
+		for (Integer num :numbers) {
+			if  ( !numset.contains(num) ) {
+				Context.println("Invalid number submitted. "+ TAG);
+				Context.revert("Please check your bet. Numbers must be between 0 and 20, submitted as a comma separated string. Returning funds.");
+			}
+		}
+		String betType = this._bet_type.get();
+		this._bet_type.set(BET_TYPES[0]);
+		BigInteger betLimit;
+		if (betType.equals(BET_TYPES[2]) ||
+				betType.equals(BET_TYPES[3])) {
+			betLimit = this._bet_limits.get(BigInteger.ZERO);
+		}else {
+			betLimit = this._bet_limits.get(BigInteger.valueOf(numbers.size()));
+		}
+		if (amount.compareTo(BET_MIN) < 0
+				|| amount.compareTo(betLimit) > 0) {
+			Context.println("Betting amount "+amount +" out of range. "+ TAG);
+			Context.revert("Betting amount "+amount+" out of range ("+BET_MIN+" -> "+betLimit+" loop).");
+		}
+		if (numbers.size() == 1) {
+			betType = BET_TYPES[4];
+		}
+		BigInteger payout;
+		if (betType.equals(BET_TYPES[1])){
+			payout = BigInteger.valueOf( MULTIPLIERS.get(BET_TYPES[5]).longValue() * 1000 ).multiply(amount).divide(BigInteger.valueOf(100));
+		}else {
+			payout = BigInteger.valueOf( MULTIPLIERS.get(betType).longValue()).multiply(amount);
+		}
+
+		if ( Context.getBalance(Context.getAddress()).compareTo(payout) < 0) {
+			Context.println("Not enough in treasury to make the play. "+ TAG);
+			Context.revert("Not enough in treasury to make the play.");
+		}
+
+		double spin = this.get_random(user_seed);
+		Integer winningNumber = WHEEL_ORDER.stream().filter(i-> i == (int)(spin * 21) ).findFirst().orElse(0);
+		Context.println("winningNumber was "+winningNumber+". "+ TAG);
+		int win = numbers.stream().filter(i-> i.equals(winningNumber)).findFirst().orElse(0);
+		Context.println("win value was "+win +". "+ TAG);
+		payout = payout.multiply(BigInteger.valueOf(win));
+		this.BetResult(String.valueOf(spin), String.valueOf(winningNumber), payout);
+
+		if (win == 1) {
+			this._wager_payout(Context.getAddress(), payout);
+		}else {
+			Context.println("Player lost. ICX retained in treasury. "+ TAG);
+		}
+	}
+
+	/*
+    Users can add to excess, excess added by this method will be only shared to tap holders and wager wars
+    :return:
+	 */
+	@Payable
+	@External
+	public void add_to_excess() {
+		if (Context.getValue().compareTo(BigInteger.ZERO) <= 0) {
+			Context.revert("No amount added to excess");
+		}
+		this._treasury_balance.set( Context.getBalance(Context.getAddress()) );
+		this.FundReceived(Context.getCaller(), Context.getValue(), Context.getValue()+ " added to excess");
+	}
+
+	@Payable
+	public void fallback() {
+
+		String gameStatus = Context.call(String.class, this._game_auth_score.get(),  "get_game_status", Context.getCaller());
+		if ( !gameStatus.equals("gameApproved")) {
+			Context.revert(
+					"This score accepts plain ICX through approved games and through set_treasury, add_to_excess method.");
+		}
+	}
+
+	@Payable
+	@External
+	public void transfer_to_dividends() {
+		if ( !Context.getCaller().equals(Context.getOwner())) {
+			Context.revert(TAG + ": Only owner can transfer the amount to dividends contract.");
+		}
+		Context.transfer(this._dividends_score.get(), Context.getValue());
+	}
+
+	public boolean getNewDivLive() {
+		return this._new_div_live.getOrDefault(false);
+	}
 
 	public static <K,V> String mapToJsonString(Map<K, V > map) {
 		StringBuilder sb = new StringBuilder("{");
@@ -964,19 +1106,7 @@ public class Daolette{
 				value.getBytes(StandardCharsets.UTF_8));
 
 	}
-	/*
-	private static String bytesToHex(byte[] hash) {
-	    StringBuilder hexString = new StringBuilder(2 * hash.length);
-	    for (int i = 0; i < hash.length; i++) {
-	        String hex = Integer.toHexString(0xff & hash[i]);
-	        if(hex.length() == 1) {
-	            hexString.append('0');
-	        }
-	        hexString.append(hex);
-	    }
-	    return hexString.toString();
-	}
-	 */
+
 	public String encodeHexString(byte[] byteArray) {
 		StringBuffer hexStringBuffer = new StringBuffer();
 		for (int i = 0; i < byteArray.length; i++) {
@@ -990,5 +1120,23 @@ public class Daolette{
 		hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
 		hexDigits[1] = Character.forDigit((num & 0xF), 16);
 		return new String(hexDigits);
+	}
+
+	public <T> String setToStringEnumerated(Set<T> set) {
+		if(set == null || set.size() == 0) {
+			return null;
+		}
+
+		StringBuilder sb = new StringBuilder();
+		for (T entry : set) {
+			sb.append(entry+",");
+		}
+		char c = sb.charAt(sb.length()-1);
+		if(c == ',') {
+			sb.deleteCharAt(sb.length()-1);
+		}
+		String list = sb.toString();
+		Context.println(list);
+		return list;
 	}
 }
