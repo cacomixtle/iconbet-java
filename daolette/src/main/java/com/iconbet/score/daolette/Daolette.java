@@ -3,9 +3,6 @@ package com.iconbet.score.daolette;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -830,13 +827,8 @@ public class Daolette{
 	public double get_random(String userSeed) {
 		Context.println("Entered get_random. "+ TAG);
 		double spin = 0.0;
-		try {
-			String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getTransactionTimestamp()) + userSeed;
-			spin = ( ByteBuffer.wrap(sha3_256(seed)).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
-		}catch (NoSuchAlgorithmException e) {
-			Context.revert(e.getMessage());
-			return spin;
-		}
+		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getTransactionTimestamp()) + userSeed;
+		spin = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
 		Context.println("Result of the spin was "+ spin + "-"+ TAG);
 		return spin;
 	}
@@ -1099,14 +1091,6 @@ public class Daolette{
 		return found;
 	}
 
-	public byte[] sha3_256(String value) throws NoSuchAlgorithmException {
-
-		final MessageDigest digest = MessageDigest.getInstance("SHA3-256");
-		return  digest.digest(
-				value.getBytes(StandardCharsets.UTF_8));
-
-	}
-
 	public String encodeHexString(byte[] byteArray) {
 		StringBuffer hexStringBuffer = new StringBuffer();
 		for (int i = 0; i < byteArray.length; i++) {
@@ -1123,7 +1107,7 @@ public class Daolette{
 	}
 
 	public <T> String setToStringEnumerated(Set<T> set) {
-		if(set == null || set.size() == 0) {
+		if(set == null || set.isEmpty()) {
 			return null;
 		}
 
