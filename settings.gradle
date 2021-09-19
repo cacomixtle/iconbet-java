@@ -4,4 +4,5 @@ include (
     'reward-distribution',
     'daolette',
     'tap-token', 
-    'game-authorization-score')
+    'game-authorization-score',
+    'daofund-score')
