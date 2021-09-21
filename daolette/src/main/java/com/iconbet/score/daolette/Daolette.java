@@ -826,10 +826,10 @@ public class Daolette{
 	 */
 	public double get_random(String userSeed) {
 		Context.println("Entered get_random. "+ TAG);
-		double spin = 0.0;
-		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getTransactionTimestamp()) + userSeed;
+		double spin;
+		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + userSeed;
 		spin = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
-		Context.println("Result of the spin was "+ spin + "-"+ TAG);
+		Context.println("Result of the spin was "+ spin + " "+ TAG);
 		return spin;
 	}
 
@@ -958,9 +958,10 @@ public class Daolette{
 			Context.println("Game not active yet. "+ TAG);
 			Context.revert("Game not active yet.");
 		}
+		String numberStr = numbers.stream().map(i-> i.toString()).collect(Collectors.joining(","));
 		BigInteger amount = Context.getValue();
-		Context.println("Betting "+amount+" loop on "+numbers+". " +TAG);
-		this.BetPlaced(amount, setToStringEnumerated(numbers));
+		Context.println("Betting "+amount+" loop on "+numberStr+". " +TAG);
+		this.BetPlaced(amount, numberStr);
 		this._take_wager(Context.getAddress(), amount);
 
 		if (numbers.size() == 0) {
@@ -1104,23 +1105,5 @@ public class Daolette{
 		hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
 		hexDigits[1] = Character.forDigit((num & 0xF), 16);
 		return new String(hexDigits);
-	}
-
-	public <T> String setToStringEnumerated(Set<T> set) {
-		if(set == null || set.isEmpty()) {
-			return null;
-		}
-
-		StringBuilder sb = new StringBuilder();
-		for (T entry : set) {
-			sb.append(entry+",");
-		}
-		char c = sb.charAt(sb.length()-1);
-		if(c == ',') {
-			sb.deleteCharAt(sb.length()-1);
-		}
-		String list = sb.toString();
-		Context.println(list);
-		return list;
 	}
 }
