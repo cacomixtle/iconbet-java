@@ -1,9 +1,7 @@
 package com.iconbet.score.daofund;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import score.Address;
@@ -43,27 +41,27 @@ public class DaoFund {
 	  ***/
 	
 	
-	private <T> boolean remove_array_item(T value, ArrayDB<T> arraydb ) {
+	private <T> boolean remove_array_item( ArrayDB<T> arraydb, T target) {
 		
-		return Boolean.FALSE;
+		T _out = arraydb.get(-1);
+		if (_out!= null && _out.equals(target)) {
+			arraydb.pop();
+			return Boolean.TRUE;
+		}
 		
+		for (int i=0; i<arraydb.size()-1; i++ ) {
+			T value = arraydb.get(i);
+			if ( value.equals(target)) {
+				arraydb.set(i, _out);
+				arraydb.pop();
+				return Boolean.TRUE;
+			}
+		}
+		
+		return Boolean.FALSE;		
 	}
 		
-	
-	/***
-	
-	def remove_array_item(array_db, target) -> bool:
-	    _out = array_db[-1]
-	    if _out == target:
-	        array_db.pop()
-	        return True
-	    for index in range(len(array_db) - 1):
-	        if array_db[index] == target:
-	            array_db[index] = _out
-	            array_db.pop()
-	            return True
-	    return False
-***/
+
 
 	@External(readonly = true)
 	public String name() {
@@ -104,7 +102,7 @@ public class DaoFund {
 		}
 		
 		if (containsInArrayDb(_admin, this.admins)) {
-			remove_array_item(_admin, this.admins);
+			remove_array_item(this.admins, _admin);
 			AdminRemoved(_admin);
 		}else {
 			Context.revert(TAG + ":  "+ _admin +" not in Admins List");
