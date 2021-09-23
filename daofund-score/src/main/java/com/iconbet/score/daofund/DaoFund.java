@@ -1,5 +1,6 @@
 package com.iconbet.score.daofund;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -7,6 +8,7 @@ import java.util.List;
 
 import score.Address;
 import score.ArrayDB;
+import score.BranchDB;
 import score.Context;
 import score.DictDB;
 import score.VarDB;
@@ -27,7 +29,9 @@ public class DaoFund {
 
 	private final ArrayDB<Address> admins = Context.newArrayDB(ADMINS, Address.class);
 	private final VarDB<BigInteger> withdraw_count = Context.newVarDB(WITHDRAW_COUNT, BigInteger.class);
-	private final DictDB<String,LinkedList> withdraw_record = Context.newDictDB(WITHDRAW_RECORD, LinkedList.class);
+	//private final DictDB<String,LinkedList> withdraw_record = Context.newDictDB(WITHDRAW_RECORD, LinkedList.class);
+	private BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
+
 
 	
 	/***
@@ -134,8 +138,8 @@ public class DaoFund {
 		if (!containsInArrayDb(sender, this.admins)) {
 			Context.revert(TAG + ": Only admins can run this method.");
 		}
-		//  _available_amount = self.icx.get_balance(self.address)
-		BigInteger _available_amount = BigInteger.ZERO;
+
+		BigInteger _available_amount = Context.getBalance(Context.getAddress());
 		if ( _available_amount.compareTo(_amount) == -1 ) {
 			Context.revert(TAG + ": Not Enough balance. Available Balance =" + _available_amount.toString());
 		}
@@ -150,11 +154,13 @@ public class DaoFund {
 			day = day.add(now.divide(X_6));
 			
 			this.withdraw_count.set(_withdraw_count);
-			getWithdrawRecord("withdraw_amount").set(_withdraw_count.intValue(),_amount.toString() ) ;
-			getWithdrawRecord("withdraw_address").set(_withdraw_count.intValue(),_address.toString() ) ;
-			getWithdrawRecord("withdraw_memo").set(_withdraw_count.intValue(), _memo ) ;
-			getWithdrawRecord("withdraw_timestamp").set(_withdraw_count.intValue(), day.toString() ) ;
+			this.withdraw_record.at(_withdraw_count).set("withdraw_amount", _amount.toString());
+			this.withdraw_record.at(_withdraw_count).set("withdraw_address", _address.toString());
+			this.withdraw_record.at(_withdraw_count).set("withdraw_memo", _memo);
+			this.withdraw_record.at(_withdraw_count).set("withdraw_timestamp", day.toString());
+			
 			// self.icx.transfer(_address, _amount)
+			Context.transfer(_address, _amount);
 			FundTransferred(_address, _amount.toString() + " transferred to " +_address.toString() + " for " + _memo);
 		}catch(Exception e) {
 			Context.revert(TAG + ": Network problem. Claiming Reward. Reason: " + e.getCause());
@@ -210,10 +216,12 @@ public class DaoFund {
 		
 		for( int _withdraw = _start.intValue();  _withdraw<=_end.intValue(); _withdraw++) {
 			
-			String withdraw_address =  getWithdrawRecordReadOnly("withdraw_address").get(_withdraw);
-			String withdraw_timestamp =  getWithdrawRecordReadOnly("withdraw_timestamp").get(_withdraw);
-			String withdraw_reason =  getWithdrawRecordReadOnly("withdraw_reason").get(_withdraw);
-			String withdraw_amount =  getWithdrawRecordReadOnly("withdraw_amount").get(_withdraw);
+			BigInteger idx = BigInteger.valueOf(_withdraw);
+			
+			String withdraw_address 	=  this.withdraw_record.at(idx).get("withdraw_address");		
+			String withdraw_timestamp 	=  this.withdraw_record.at(idx).get("withdraw_timestamp");
+			String withdraw_reason 		=  this.withdraw_record.at(idx).get("withdraw_reason");
+			String withdraw_amount 		=  this.withdraw_record.at(idx).get("withdraw_amount");
 			
 			withdrawRecord.add(withdraw_address);
 			withdrawRecord.add(withdraw_timestamp);
@@ -237,10 +245,10 @@ public class DaoFund {
 			return withdrawRecord;
 		}
 		
-		String withdraw_address =  getWithdrawRecordReadOnly("withdraw_address").get(_idx.intValue());
-		String withdraw_timestamp =  getWithdrawRecordReadOnly("withdraw_timestamp").get(_idx.intValue());
-		String withdraw_reason =  getWithdrawRecordReadOnly("withdraw_reason").get(_idx.intValue());
-		String withdraw_amount =  getWithdrawRecordReadOnly("withdraw_amount").get(_idx.intValue());
+		String withdraw_address 	=  this.withdraw_record.at(_idx).get("withdraw_address");		
+		String withdraw_timestamp 	=  this.withdraw_record.at(_idx).get("withdraw_timestamp");
+		String withdraw_reason 		=  this.withdraw_record.at(_idx).get("withdraw_reason");
+		String withdraw_amount 		=  this.withdraw_record.at(_idx).get("withdraw_amount");
 
 		withdrawRecord.add(withdraw_address);
 		withdrawRecord.add(withdraw_timestamp);
@@ -263,7 +271,7 @@ public class DaoFund {
 	public void FundTransferred(Address _address, String note) {}	
         
 	
-	
+/***	
 	private LinkedList<String> getWithdrawRecord(String property){
 		LinkedList<String> withdrawRecord = this.withdraw_record.get(property);
 		if(withdrawRecord == null) {
@@ -282,7 +290,7 @@ public class DaoFund {
 		return withdrawRecord;
 	}
 	
-	
+***/	
 	private <T> Boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
 		if(arraydb == null || value == null) {
