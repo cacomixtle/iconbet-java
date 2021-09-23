@@ -143,7 +143,7 @@ public class DaoletteGame {
     :rtype: bool
 	 */
 	@External(readonly=true)
-	public Boolean get_game_on() {
+	public boolean get_game_on() {
 		return this._game_on.get();
 	}
 
@@ -163,11 +163,11 @@ public class DaoletteGame {
     :return: Bet limit in loop
 	 */
 	@External(readonly=true)
-	public BigInteger get_bet_limit(Integer n) {
+	public BigInteger get_bet_limit(BigInteger n) {
 
 		BigInteger treasuryMin = Context.call(BigInteger.class, this._treasury_score.get(),  "get_treasury_min");
 
-		return treasuryMin.divide(BigInteger.valueOf(BET_LIMIT_RATIOS[n]));
+		return treasuryMin.divide(BigInteger.valueOf(BET_LIMIT_RATIOS[n.intValue()]));
 	}
 
 	/*
@@ -203,7 +203,7 @@ public class DaoletteGame {
 	 */
 	@External
 	@Payable
-	public void bet_on_color(Boolean color, String user_seed) {
+	public void bet_on_color(boolean color, String user_seed) {
 		Set<Integer> numbers;
 		if (color) {
 			numbers = WHEEL_RED;
@@ -223,7 +223,7 @@ public class DaoletteGame {
 	 */
 	@External
 	@Payable
-	public void bet_on_even_odd(Boolean even_odd, String user_seed) {
+	public void bet_on_even_odd(boolean even_odd, String user_seed) {
 		Set<Integer> numbers;
 		if (even_odd) {
 			numbers = WHEEL_ODD;
@@ -293,7 +293,7 @@ public class DaoletteGame {
 		//treasury_score.icx(self.msg.value).send_wager(amount)
 		Context.call(this._treasury_score.get(),  "send_wager", amount);
 
-		if (numbers.size() == 0) {
+		if (numbers.isEmpty()) {
 			Context.println("Bet placed without numbers. "+ TAG);
 			Context.revert("Invalid bet. No numbers submitted. Zero win chance. Returning funds.");
 		}else if (numbers.size() > 20) {

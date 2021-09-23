@@ -1,9 +1,7 @@
 package com.iconbet.score.tap;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,7 +20,7 @@ public class TapToken implements IRC2{
 
 	public static final String TAG = "TapToken";
 	//TODO: verify this value exists as long and not as biginteger
-	private static final long DAY_TO_MICROSECOND = (long) Math.pow( 24*60*60, 6);
+	private static final long DAY_TO_MICROSECOND = 86_400_000_000l;
 	private static final String BALANCES = "balances";
 	private static final String TOTAL_SUPPLY = "total_supply";
 	private static final String DECIMALS = "decimals";
@@ -71,7 +69,7 @@ public class TapToken implements IRC2{
 	private final ArrayDB<Address> evenDayChanges = Context.newArrayDB(EVEN_DAY_CHANGES, Address.class);
 	private final ArrayDB<Address> oddDayChanges = Context.newArrayDB(ODD_DAY_CHANGES, Address.class);
 
-	List<ArrayDB<Address>> changes = Arrays.asList(evenDayChanges, oddDayChanges);
+	private List<ArrayDB<Address>> changes = List.of(evenDayChanges, oddDayChanges);
 
 	private final VarDB<BigInteger> maxLoop = Context.newVarDB(MAX_LOOPS, BigInteger.class);
 	private final VarDB<BigInteger> indexUpdateBalance = Context.newVarDB(INDEX_UPDATE_BALANCE, BigInteger.class);
@@ -94,7 +92,7 @@ public class TapToken implements IRC2{
 	private final ArrayDB<Address> evenDayStakeChanges = Context.newArrayDB(EVEN_DAY_STAKE_CHANGES, Address.class);
 	private final ArrayDB<Address> oddDayStakeChanges = Context.newArrayDB(ODD_DAY_STAKE_CHANGES, Address.class);
 
-	List<ArrayDB<Address>> stakeChanges = Arrays.asList(evenDayStakeChanges, oddDayStakeChanges);
+	private List<ArrayDB<Address>> stakeChanges  = List.of(evenDayStakeChanges, oddDayStakeChanges);
 
 	private final VarDB<BigInteger> indexUpdateStake = Context.newVarDB(INDEX_UPDATE_STAKE, BigInteger.class);
 	private final VarDB<BigInteger> indexStakeAddressChanges = Context.newVarDB(INDEX_STAKE_ADDRESS_CHANGES, BigInteger.class);
@@ -125,7 +123,7 @@ public class TapToken implements IRC2{
 		//TODO: make sure iconbet do not want decimals a biginteger like 2^2147483647 decimals
 		//in terms of value, having it as datatype is ok
 		//(having decimals as biginteger does not make sense)
-		BigInteger totalSupply = _initialSupply.multiply( BigInteger.TEN.pow(_decimals.intValue()) );
+		BigInteger totalSupply = _initialSupply.multiply( pow( BigInteger.TEN , _decimals.intValue()) );
 		Context.println(TAG+" : total_supply "+ totalSupply );
 
 		this.totalSupply.set(totalSupply);
@@ -202,7 +200,11 @@ public class TapToken implements IRC2{
 	@External(readonly=true)
 	public BigInteger available_balance_of(Address _owner) {
 		var detailBalance = details_balanceOf(_owner);
-		return detailBalance.getOrDefault("Available balance", BigInteger.ZERO);
+		if(detailBalance.containsKey("Available balance")) {
+			return detailBalance.get("Available balance");
+		}else {
+			return BigInteger.ZERO;
+		}
 	}
 
 	@External(readonly=true)
@@ -213,7 +215,11 @@ public class TapToken implements IRC2{
 	@External(readonly=true)
 	public BigInteger unstaked_balance_of(Address _owner) {
 		Map<String, BigInteger> detailBalance = details_balanceOf(_owner);
-		return detailBalance.getOrDefault("Unstaking balance", BigInteger.ZERO);
+		if(detailBalance.containsKey("Unstaking balance")) {
+			return detailBalance.get("Unstaking balance");
+		}else {
+			return BigInteger.ZERO;
+		}
 	}
 
 	@External(readonly=true)
@@ -222,17 +228,17 @@ public class TapToken implements IRC2{
 	}
 
 	@External(readonly=true)
-	public Boolean staking_enabled() {
+	public boolean staking_enabled() {
 		return this.stakingEnabled.getOrDefault(false);
 	}
 
 	@External(readonly=true)
-	public Boolean switch_divs_to_staked_tap_enabled() {
+	public boolean switch_divs_to_staked_tap_enabled() {
 		return this.switchDivsToStakedTapEnabled.getOrDefault(false);
 	}
 
 	@External(readonly=true)
-	public Boolean getPaused() {
+	public boolean getPaused() {
 		return this.paused.getOrDefault(false);
 	}
 
@@ -262,15 +268,13 @@ public class TapToken implements IRC2{
 			unstakingTime = sb[Status.UNSTAKING_PERIOD];
 		}
 
-		Map<String, BigInteger> map = new HashMap<>();
+		return Map.of(
+				"Total balance", this.balances.getOrDefault(_owner, BigInteger.ZERO),
+				"Available balance", availableBalance.add( currUnstaked),
+				"Staked balance", sb[Status.STAKED],
+				"Unstaking balance", unstakingAmount,
+				"Unstaking time (in microseconds)", unstakingTime);
 
-		map.put("Total balance", this.balances.getOrDefault(_owner, BigInteger.ZERO));
-		map.put("Available balance", availableBalance.add( currUnstaked) );
-		map.put("Staked balance", sb[Status.STAKED]);
-		map.put("Unstaking balance", unstakingAmount);
-		map.put("Unstaking time (in microseconds)", unstakingTime);
-
-		return map;
 	}
 
 	private boolean firstTime(Address from) {
@@ -496,7 +500,7 @@ public class TapToken implements IRC2{
 		}
 
 		//TODO: verify this operation
-		BigInteger totalAmount = _amount.pow(this.decimals.getOrDefault(BigInteger.ONE).intValue());
+		BigInteger totalAmount = pow(_amount , this.decimals.getOrDefault(BigInteger.ONE).intValue());
 		this.minimumStake.set(totalAmount);
 	}
 
@@ -598,22 +602,23 @@ public class TapToken implements IRC2{
 				this.balanceUpdateDb.set(BigInteger.valueOf(this.addressUpdateDb.get()));
 				this.indexUpdateBalance.set(this.indexAddressChanges.getOrDefault(BigInteger.ZERO));
 			}
-			return new HashMap<>();
+			return Map.of();
 		}
 
 		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
 
-		Map<String, BigInteger> balances = new HashMap<>();
-		for(int i = start; i< end; i++) {
+		Map<String, BigInteger> balances = Map.of();
+		//TODO:fix
+		/*for(int i = start; i< end; i++) {
 			balances.put(balanceChanges.get(i).toString(), this.balances.get(balanceChanges.get(i)));
-		}
+		}*/
 
 		this.indexUpdateBalance.set(BigInteger.valueOf(end));
 		return balances;
 	}
 
 	@External
-	public Boolean clear_yesterdays_changes() {
+	public boolean clear_yesterdays_changes() {
 		/*
         Clears the array db storing yesterday's changes
         :return: True if the array has been emptied
@@ -634,30 +639,27 @@ public class TapToken implements IRC2{
 		return yesterdaysChanges.size() <= 0;
 	}
 
+	/*
+    Returns all the blacklisted addresses(rewards score address and devs team address)
+    :return: List of blacklisted address
+    :rtype: list
+	 */
 	@External(readonly=true)
 	public List<Address> get_blacklist_addresses() {
-		/*
-        Returns all the blacklisted addresses(rewards score address and devs team address)
-        :return: List of blacklisted address
-        :rtype: list
-		 */
-		List<Address> addressList = new ArrayList<>();
 
-		for (int i=0; i< this.blacklistAddress.size(); i++) {
-			addressList.add(this.blacklistAddress.get(i));
-		}
-		return addressList;
+		return arrayDbToList(this.blacklistAddress);
 	}
 
+	/*
+    Removes the address from blacklist.
+    Only owner can remove the blacklist address
+    :param _address: Address to be removed from blacklist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
 	@External
 	public void remove_from_blacklist(Address _address) {
-		/*
-        Removes the address from blacklist.
-        Only owner can remove the blacklist address
-        :param _address: Address to be removed from blacklist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-		 */
+
 		if (Context.getCaller().equals(Context.getOwner()) ){
 			if ( !containsInArrayDb(_address, this.blacklistAddress) ){
 				//TODO: check if toString produces a s;tring representation or a java object string
@@ -728,20 +730,23 @@ public class TapToken implements IRC2{
 				this.stakeUpdateDb.set(BigInteger.valueOf(this.stakeAddressUpdateDb.getOrDefault(0)));
 				this.indexUpdateStake.set(this.indexStakeAddressChanges.getOrDefault(BigInteger.ZERO));
 			}
-			return new HashMap<>();
+			return Map.of();
 		}
 		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
 
-		Map<String, BigInteger> detailedBalances = new HashMap<>();
-		for(int i=start; i< end; i++) {
+		
+		Map<String, BigInteger> detailedBalances = Map.of();
+
+		//TODO: fix
+		/*for(int i=start; i< end; i++) {
 			detailedBalances.put( stakeChanges.get(i).toString(),  this.staked_balance_of(stakeChanges.get(i)));
-		}
+		}*/
 		this.indexUpdateStake.set(BigInteger.valueOf(end));
 		return detailedBalances;
 	}
 
 	@External
-	public Boolean clear_yesterdays_stake_changes() {
+	public boolean clear_yesterdays_stake_changes() {
 		this.stakingEnabledOnly();
 		this.switchDivsToStakedTapEnabledOnly();
 		this.dividendsOnly();
@@ -770,18 +775,15 @@ public class TapToken implements IRC2{
 		this.indexStakeAddressChanges.set(BigInteger.valueOf(stakeChanges.size()));
 	}
 
+	/*
+    Returns all locked addresses.
+    :return: List of locked addresses
+    :rtype: list
+	 */
 	@External(readonly=true)
 	public List<Address> get_locklist_addresses() {
-		/*
-        Returns all locked addresses.
-        :return: List of locked addresses
-        :rtype: list
-		 */
-		List<Address> addressList = new ArrayList<>();
-		for (int i=0; i< this.locklist.size(); i++) {
-			addressList.add(locklist.get(i));
-		}
-		return addressList;
+
+		return arrayDbToList(this.locklist);
 	}
 
 	@External
@@ -840,18 +842,15 @@ public class TapToken implements IRC2{
 		}
 	}
 
+	/*
+    Returns all addresses whitelisted during pause.
+    :return: List of whitelisted addresses
+    :rtype: list
+	 */
 	@External(readonly=true)
 	public List<Address> get_whitelist_addresses() {
-		/*
-        Returns all addresses whitelisted during pause.
-        :return: List of whitelisted addresses
-        :rtype: list
-		 */
-		List<Address> addressList = new ArrayList<>();
-		for(int i=0; i < this.pauseWhitelist.size(); i++) {
-			addressList.add(this.pauseWhitelist.get(i));
-		}
-		return addressList;
+
+		return arrayDbToList(this.pauseWhitelist);
 	}
 
 	@External
@@ -932,4 +931,24 @@ public class TapToken implements IRC2{
 		}
 		return value;
 	}
+
+    // BigInteger#pow() is not implemented in the shadow BigInteger.
+    // we need to use our implementation for that.
+    private static BigInteger pow(BigInteger base, int exponent) {
+        BigInteger result = BigInteger.ONE;
+        for (int i = 0; i < exponent; i++) {
+            result = result.multiply(base);
+        }
+        return result;
+    }
+
+    private <T> List<T> arrayDbToList(ArrayDB<T> arraydb) {
+		@SuppressWarnings("unchecked")
+		T[] addressList = (T[])new Object[arraydb.size()];
+
+		for (int i=0; i< arraydb.size(); i++) {
+			addressList[i] = arraydb.get(i);
+		}
+		return List.of(addressList);
+    }
 }

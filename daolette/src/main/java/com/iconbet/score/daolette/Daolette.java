@@ -178,7 +178,7 @@ public class Daolette{
 	}
 
 	@External(readonly=true)
-	public Boolean get_excess_smoothing_status() {
+	public boolean get_excess_smoothing_status() {
 		/*
         Status of excess smoothing.
         :return: Returns the boolean value representing the status of excess smoothing
@@ -279,7 +279,7 @@ public class Daolette{
 	}
 
 	@External(readonly=true)
-	public Boolean get_treasury_status() {
+	public boolean get_treasury_status() {
 		/*
         Returns the status of treasury. If the treasury is to be dissolved it returns True
         :return: True if treasury is to be dissolved
@@ -358,7 +358,7 @@ public class Daolette{
     :rtype: bool
 	 */
 	@External(readonly=true)
-	public Boolean get_game_on_status() {
+	public boolean get_game_on_status() {
 		return this._game_on.get();
 	}
 
@@ -671,7 +671,7 @@ public class Daolette{
 	 */
 	@External
 	@Payable
-	public void bet_on_color(Boolean color, String user_seed) {
+	public void bet_on_color(boolean color, String user_seed) {
 		this._bet_type.set(BET_TYPES[2]);
 		Set<Integer> numbers;
 		if (color) {
@@ -692,7 +692,7 @@ public class Daolette{
 	 */
 	@External
 	@Payable
-	public void bet_on_even_odd(Boolean even_odd, String user_seed) {
+	public void bet_on_even_odd(boolean even_odd, String user_seed) {
 		this._bet_type.set(BET_TYPES[3]);
 		Set<Integer> numbers;
 		if (even_odd) {
