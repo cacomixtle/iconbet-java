@@ -39,8 +39,8 @@ public class Authorization{
 	}
 	
 	
-	private static final String TAG = "AUTHORIZATION";
-	private static final Boolean DEBUG = Boolean.FALSE;
+	public static final String TAG = "AUTHORIZATION";
+	public static final Boolean DEBUG = Boolean.FALSE;
 	private static final BigInteger MULTIPLIER = new BigInteger("1000000000000000000");
 	private static final BigInteger U_SECONDS_DAY = new BigInteger("86400000000"); // Microseconds in a day.
 			
