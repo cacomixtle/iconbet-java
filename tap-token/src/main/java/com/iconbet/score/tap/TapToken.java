@@ -1,7 +1,6 @@
 package com.iconbet.score.tap;
 
 import java.math.BigInteger;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -607,14 +606,16 @@ public class TapToken implements IRC2{
 
 		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
 
-		Map<String, BigInteger> balances = Map.of();
-		//TODO:fix
-		/*for(int i = start; i< end; i++) {
-			balances.put(balanceChanges.get(i).toString(), this.balances.get(balanceChanges.get(i)));
-		}*/
-
+		@SuppressWarnings("unchecked")
+		Map.Entry<String, BigInteger>[] entries = new Map.Entry[end-start];
+		//TODO: validate this logic
+		int j = 0;
+		for(int i=start; i< end; i++) {
+			entries[j] = Map.entry(balanceChanges.get(i).toString(), this.balances.get(balanceChanges.get(i)));
+			j++;
+		}
 		this.indexUpdateBalance.set(BigInteger.valueOf(end));
-		return balances;
+		return Map.ofEntries(entries);
 	}
 
 	@External
@@ -734,15 +735,16 @@ public class TapToken implements IRC2{
 		}
 		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
 
-		
-		Map<String, BigInteger> detailedBalances = Map.of();
-
-		//TODO: fix
-		/*for(int i=start; i< end; i++) {
-			detailedBalances.put( stakeChanges.get(i).toString(),  this.staked_balance_of(stakeChanges.get(i)));
-		}*/
+		@SuppressWarnings("unchecked")
+		Map.Entry<String, BigInteger>[] entries = new Map.Entry[end-start];
+		//TODO: validate this logic
+		int j = 0;
+		for(int i=start; i< end; i++) {
+			entries[j] = Map.entry(stakeChanges.get(i).toString(),  this.staked_balance_of(stakeChanges.get(i)));
+			j++;
+		}
 		this.indexUpdateStake.set(BigInteger.valueOf(end));
-		return detailedBalances;
+		return Map.ofEntries(entries);
 	}
 
 	@External
