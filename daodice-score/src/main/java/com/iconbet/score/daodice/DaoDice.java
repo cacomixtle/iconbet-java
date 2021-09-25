@@ -1,5 +1,7 @@
 package com.iconbet.score.daodice;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
@@ -26,6 +28,16 @@ public class DaoDice {
 	public static final BigInteger _540 = BigInteger.valueOf(540);
 	public static final BigInteger _12548 = BigInteger.valueOf(12548);
 	public static final BigInteger _11 = BigInteger.valueOf(11);
+	public static final BigInteger _99 = BigInteger.valueOf(99);
+	public static final BigInteger _95 = BigInteger.valueOf(95);
+	public static final BigDecimal _100D = BigDecimal.valueOf(100);
+	public static final BigInteger _100I = BigInteger.valueOf(100);
+	public static final BigDecimal _1_5D = BigDecimal.valueOf(1.5);
+	public static final BigDecimal _68134 = BigDecimal.valueOf(68134);
+	public static final BigDecimal _681_34 = BigDecimal.valueOf(681.34);
+
+	
+	
 	
 	public static List<String> SIDE_BET_TYPES = List.of("digits_match", "icon_logo1", "icon_logo2");
 	public static Map<String, BigDecimal> SIDE_BET_MULTIPLIERS = Map.of("digits_match",MAIN_BET_MULTIPLIER, "icon_logo1", FIVE, "icon_logo2", SIDE_BET_MULTIPLIER );
@@ -68,6 +80,8 @@ public class DaoDice {
     def on_update(self) -> None:
         super().on_update()
 	***/
+	
+	
 	/***
     A function to return the owner of this score.
     :return: Owner address of this score
@@ -188,14 +202,11 @@ public class DaoDice {
 		if (sender.isContract()) {
 			Context.revert("ICONbet: SCORE cant play games");
 		}
-		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());
-		BigDecimal spin = BigDecimal.ZERO;
 		
-		//seed = (str(bytes.hex(self.tx.hash)) + str(self.now()) + user_seed)
-		//spin = (int.from_bytes(sha3_256(seed.encode()), "big") % 100000) / 100000.0
-		String msg = now.toString().concat(user_seed);
-		byte[] bytes = Context.hash("", msg.getBytes());
-		
+		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + user_seed;
+		double spinFloat = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
+		BigDecimal spin = BigDecimal.valueOf(spinFloat);
+				
 		Context.println("Result of the spin was " + spin.toString() +" "+ TAG);
 		return spin;
 	}
@@ -227,6 +238,131 @@ public class DaoDice {
 		/***
 		 * TODO 
 		 */
+		Boolean side_bet_win = Boolean.FALSE;
+		Boolean side_bet_set = Boolean.FALSE;
+		BigInteger side_bet_payout = BigInteger.ZERO;
+		BigInteger side_bet_limit = BigInteger.ZERO;
+		BigInteger main_bet_amount = BigInteger.ZERO;
+		Boolean main_bet_win = Boolean.FALSE;
+		
+		BetSource(get_roulette_score(), side_bet_amount);
+		
+		BigInteger _treasury_min = Context.call(BigInteger.class,this._roulette_score.get(), "get_treasury_min");
+		Context.transfer(this._roulette_score.get(), Context.getValue());
+		FundTransfer(this._roulette_score.get(),  Context.getValue(), "Sending icx to Roulette");
+		Context.call(Context.getValue(),this._roulette_score.get(), "take_wager");
+		
+		
+		if (!this._game_on.get()) {
+			Context.println("Game not active yet. "+TAG);
+			Context.revert("Game not active yet.");
+		}
+		if(!((upper.compareTo(BigInteger.ZERO)>= 0 && upper.compareTo(_99)<= 0) && 
+				(lower.compareTo(BigInteger.ZERO)>= 0 && lower.compareTo(_99)<= 0))){
+			Context.println("Numbers placed with out of range numbers "+TAG);
+			Context.revert("Invalid bet. Choose a number between 0 to 99");
+		}
+		
+		BigInteger gapResult = upper.subtract(upper);
+		if(!(BigInteger.ZERO.compareTo(gapResult)== -1 &&
+				gapResult.compareTo(_95)== -1 ) ) {
+			Context.println("Bet placed with illegal gap "+TAG);
+			Context.revert("Invalid gap. Choose upper and lower values such that gap is between 0 to 95");
+		}
+		
+		if (("".equals(side_bet_type) &&  BigInteger.ZERO.compareTo(side_bet_amount)!=0 ) ||
+				((!"".equals(side_bet_type)) &&   BigInteger.ZERO.compareTo(side_bet_amount)==0 )) {
+			Context.println("should set both side bet type as well as side bet amount "+TAG);
+			Context.revert("should set both side bet type as well as side bet amount");
+		}
+
+		if(BigInteger.ZERO.compareTo(side_bet_amount)== -1) {
+			Context.revert("Bet amount cannot be negative'");
+		}
+		
+		if ( !"".equals(side_bet_type) && BigInteger.ZERO.compareTo(side_bet_amount)!= 0 ) {
+			side_bet_set = Boolean.TRUE;
+			if (!SIDE_BET_TYPES.contains(side_bet_type) ) {
+				Context.println("Invalid side bet type "+TAG);
+				Context.revert("Invalid side bet type.");		
+			}
+			side_bet_limit = _treasury_min.divide( BET_LIMIT_RATIOS_SIDE_BET.get(side_bet_type) );
+			if ( BET_MIN.compareTo(side_bet_amount) == 1 || side_bet_amount.compareTo(side_bet_limit)== 1) {
+				Context.println("Betting amount " + side_bet_amount.toString() +" out of range. "+TAG);
+				Context.revert("Betting amount "+side_bet_amount.toString() +" out of range ("+BET_MIN.toString() +" ,"+side_bet_limit.toString()+").");		
+			}
+			BigInteger result = SIDE_BET_MULTIPLIERS.get(side_bet_type).multiply(_100D).toBigInteger();
+			side_bet_payout = result.multiply(side_bet_amount).divide(_100I);
+		}
+		
+		main_bet_amount = Context.getValue().subtract(side_bet_amount);
+		BetPlaced(main_bet_amount, upper, lower);
+		BigInteger gap = upper.subtract(lower).add(BigInteger.ONE);
+		
+		if(BigInteger.ZERO.compareTo(main_bet_amount) == 0) {
+			Context.println("No main bet amount provided "+TAG);
+			Context.revert("No main bet amount provided");				
+		}
+		
+		BigDecimal main_bet_limit = BigDecimal.ZERO;
+		BigDecimal _treasury_minD = new BigDecimal(_treasury_min);
+		BigDecimal main_bet_limitResult =  _treasury_minD.multiply(_1_5D).multiply(new BigDecimal(gap));
+		BigDecimal newRange = _68134.subtract(_681_34).multiply(new BigDecimal(gap)) ;
+		main_bet_limit = main_bet_limitResult.divide(newRange);
+		
+		if ( BET_MIN.compareTo(main_bet_amount)== 1 || main_bet_amount.compareTo(main_bet_limit.toBigInteger()) == 1) {
+			Context.println("Betting amount "+main_bet_amount.toString() +" out of range. "+TAG);
+			Context.revert("Main Bet amount {"+main_bet_amount.toString() +"} out of range {"+BET_MIN.toString()+"},{"+main_bet_limit.toEngineeringString()+"}");				
+		}
+		
+		BigInteger main_bet_payoutResult = MAIN_BET_MULTIPLIER.multiply(_100D).toBigInteger().multiply(main_bet_amount);
+		BigInteger main_bet_payout = main_bet_payoutResult.divide(_100I.multiply(gap));
+		
+		BigInteger payout = side_bet_payout.add(main_bet_payout);
+		BigInteger balance = Context.getBalance(this._roulette_score.get());
+		if (balance.compareTo(payout) == -1) {
+			Context.println("Not enough in treasury to make the play. "+TAG);
+			Context.revert("Not enough in treasury to make the play.");
+		}
+		BigDecimal spin = get_random(user_seed);
+		BigInteger winningNumber = spin.multiply(_100D).toBigInteger();
+		Context.println("winningNumber was {"+winningNumber.toString()+"}. "+TAG);
+		
+		if (lower.compareTo(winningNumber) <= 0 && 
+				upper.compareTo(winningNumber)>= 0) {
+			main_bet_win = Boolean.TRUE;
+		}else {
+			main_bet_win = Boolean.FALSE;
+		}
+		
+		if (side_bet_set) {
+			side_bet_win = check_side_bet_win(side_bet_type,winningNumber);
+			if (!side_bet_win) {
+				side_bet_payout = BigInteger.ZERO;
+			}
+		}
+		
+		main_bet_payout = main_bet_payout.multiply(main_bet_win?BigInteger.ONE:BigInteger.ZERO);
+		payout = main_bet_payout.add(side_bet_payout);
+		BetResult(spin.toString(), winningNumber, payout);
+		PayoutAmount(payout, main_bet_payout, side_bet_payout);
+		
+		if (main_bet_win || side_bet_win) {
+			Context.println("Amount owed to winner: {"+payout.toString()+"}. "+TAG);			
+			try {
+				Context.println("Trying to send to ({"+Context.getOrigin().toString()+"}): {"+payout.toString()+"}. "+TAG);
+				Context.call(Context.getOrigin(), "wager_payout", payout);
+				Context.println("Sent winner ({"+Context.getOrigin().toString()+"}): {"+payout.toString()+"}. "+TAG);
+				
+			}catch(Exception e) {
+				Context.println("Send failed. Exception: " + e +" "+TAG);
+				Context.revert("Network problem. Winnings not sent. Returning funds.");
+
+			}
+		}else {
+			Context.println("Player lost. ICX retained in treasury. "+TAG);
+		}
+
 	}
 	
 	
@@ -260,4 +396,18 @@ public class DaoDice {
 	@Payable
 	public void fallback() {}
 
+	public String encodeHexString(byte[] byteArray) {
+		StringBuffer hexStringBuffer = new StringBuffer();
+		for (int i = 0; i < byteArray.length; i++) {
+			hexStringBuffer.append(byteToHex(byteArray[i]));
+		}
+		return hexStringBuffer.toString();
+	}
+	
+	public String byteToHex(byte num) {
+		char[] hexDigits = new char[2];
+		hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
+		hexDigits[1] = Character.forDigit((num & 0xF), 16);
+		return new String(hexDigits);
+	}
 }
