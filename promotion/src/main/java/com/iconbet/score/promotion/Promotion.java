@@ -3,14 +3,13 @@ package com.iconbet.score.promotion;
 import static java.math.BigInteger.ZERO;
 
 import java.math.BigInteger;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Map.Entry;
 
 import com.eclipsesource.json.Json;
 import com.eclipsesource.json.JsonObject;
+import com.eclipsesource.json.JsonObject.Member;
 
 import score.Address;
 import score.Context;
@@ -96,35 +95,42 @@ public class Promotion {
     Distributes the prizes it receive to the top 10 wagerers
     :return:
 	 */
+	@SuppressWarnings("unchecked")
 	public void _distribute_prizes() {
 		String json = Context.call(String.class, this._rewards_score.get(),  "get_daily_wager_totals");
 
 		JsonObject wagerTotals = Json.parse(json).asObject();
-		Map<String, BigInteger> wagers = new HashMap<>();
-		wagerTotals.get("yesterday").asObject().forEach(
-				t-> wagers.put(
-						t.getName(), new BigInteger(t.getValue().asString())
-						)
-				);
+		Iterator<Member> it = wagerTotals.get("yesterday").asObject().iterator();
 
-		Map<String, BigInteger> topTen = wagers.entrySet().stream()
-				.sorted(
-						Collections.reverseOrder(Map.Entry.comparingByValue()))
-				.limit(10)
-				.collect(
-						Collectors.toMap(
-								Map.Entry::getKey, Map.Entry::getValue,(e1, e2) -> e2,LinkedHashMap::new)
-						);
+		Map.Entry<String, BigInteger>[] wagers = new Map.Entry[wagerTotals.get("yesterday").asObject().size()];
+
+		int j = 0;
+		while(it.hasNext()) {
+			Member t = it.next();
+			wagers[j] = Map.entry(t.getName(), new BigInteger(t.getValue().asString())); 
+			j++;
+		}
+
+		Comparator<Map.Entry<String, BigInteger>> c = new Comparator<>() {
+			@Override
+			public int compare(Entry<String, BigInteger> a, Entry<String, BigInteger> b) {
+				return a.getValue().compareTo(b.getValue());
+			}
+		};
+
+		ArrayUtils.quickSort(wagers, 0, wagers.length, c);
+
+		Map.Entry<String, BigInteger>[] topWagers = (Map.Entry<String, BigInteger>[])ArrayUtils.top(wagers, 10, true);
 
 		int totalPercent = 0;
-		for(int i = topTen.size()-1 ; i >= 0 ; i-- ) {
+		for(int i = topWagers.length-1 ; i >= 0 ; i-- ) {
 			totalPercent = totalPercent + WAGER_WAR_PRIZE[i]; 
 		}
 
 		int i = 0;
 		//TODO: test this logic in depth
 		BigInteger totalPrizes = this._total_prizes.get();
-		for (Map.Entry<String, BigInteger> es: topTen.entrySet()) {
+		for (Map.Entry<String, BigInteger> es: topWagers) {
 			String address =  es.getKey();
 			BigInteger prize = BigInteger.valueOf(WAGER_WAR_PRIZE[i]).multiply(totalPrizes).divide(BigInteger.valueOf(totalPercent));
 			totalPercent -= WAGER_WAR_PRIZE[i];

@@ -10,6 +10,8 @@ buildscript {
 subprojects {
     repositories {
         mavenCentral()
+		//this is not needed, i added it to use a hacky lib that has a bug 
+		//mavenLocal()
     }
 
     apply plugin: 'java'

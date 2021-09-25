@@ -1,15 +1,8 @@
 package com.iconbet.score.daolette.game;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import score.Address;
 import score.Context;
@@ -31,24 +24,24 @@ public class DaoletteGame {
 
 	private static final String[] BET_TYPES = new String[] {"none", "bet_on_numbers", "bet_on_color", "bet_on_even_odd", "bet_on_number", "number_factor"};
 
-	private static final Set<Integer> WHEEL_ORDER = new HashSet<>(Arrays.asList(2, 20, 3, 17, 6, 16, 7, 13, 10, 12,
-			11, 9, 14, 8, 15, 5, 18, 4, 19, 1, 0));
+	private static final List<Integer> WHEEL_ORDER = List.of(2, 20, 3, 17, 6, 16, 7, 13, 10, 12,
+			11, 9, 14, 8, 15, 5, 18, 4, 19, 1, 0);
 
-	private static final Set<Integer> WHEEL_BLACK = new HashSet<>(Arrays.asList(2,3,6,7,10,11,14,15,18,19));
+	private static final List<Integer> WHEEL_BLACK = List.of(2,3,6,7,10,11,14,15,18,19);
 
-	private static final Set<Integer> SET_BLACK = new HashSet<>(Arrays.asList( 2, 3, 6, 7, 10, 11, 14, 15, 18, 19));
+	private static final List<Integer> SET_BLACK = List.of(2, 3, 6, 7, 10, 11, 14, 15, 18, 19);
 
-	private static final Set<Integer> WHEEL_RED  = new HashSet<>( Arrays.asList(1,4,5,8,9,12,13,16,17,20));
+	private static final List<Integer> WHEEL_RED  = List.of(1,4,5,8,9,12,13,16,17,20);
 
-	private static final Set<Integer> SET_RED = new HashSet<>(Arrays.asList( 1, 4, 5, 8, 9, 12, 13, 16, 17, 20));
+	private static final List<Integer> SET_RED = List.of( 1, 4, 5, 8, 9, 12, 13, 16, 17, 20);
 
-	private static final Set<Integer> WHEEL_ODD = new HashSet<>( Arrays.asList(1,3,5,7,9,11,13,15,17,19));
+	private static final List<Integer> WHEEL_ODD = List.of(1,3,5,7,9,11,13,15,17,19);
 
-	private static final Set<Integer> SET_ODD = new HashSet<>( Arrays.asList( 1, 3, 5, 7, 9, 11, 13, 15, 17, 19));
+	private static final List<Integer> SET_ODD = List.of( 1, 3, 5, 7, 9, 11, 13, 15, 17, 19);
 
-	private static final Set<Integer> WHEEL_EVEN = new HashSet<>( Arrays.asList(2,4,6,8,10,12,14,16,18,20));
+	private static final List<Integer> WHEEL_EVEN = List.of(2,4,6,8,10,12,14,16,18,20);
 
-	private static final Set<Integer> SET_EVEN = new HashSet<>( Arrays.asList( 2, 4, 6, 8, 10, 12, 14, 16, 18, 20));
+	private static final List<Integer> SET_EVEN = List.of( 2, 4, 6, 8, 10, 12, 14, 16, 18, 20);
 
 	private static final Map<String, Float> MULTIPLIERS = Map.of(
 			"bet_on_color", 2f,
@@ -181,15 +174,16 @@ public class DaoletteGame {
 	@External
 	@Payable
 	public void bet_on_numbers(String numbers, String user_seed) {
-		List<Integer> list = Stream.of(numbers.split(",")).mapToInt(n -> Integer.valueOf(n)).boxed().collect(Collectors.toList());
-		Set<Integer> numSet = Set.of(list.toArray(new Integer[list.size()]));
 
-		if (numSet.equals(SET_RED) || numSet.equals(SET_BLACK)) {
-			this.__bet(numSet, user_seed, BET_TYPES[2]);
-		}else if (numSet.equals(SET_ODD) || numSet.equals(SET_EVEN)) {
-			this.__bet(numSet, user_seed, BET_TYPES[3]);
+		String[] array = StringUtils.split(numbers, ',');
+		List<Integer> numList = List.of(mapToInt(array));
+
+		if (numList.equals(SET_RED) || numList.equals(SET_BLACK)) {
+			this.__bet(numList, user_seed, BET_TYPES[2]);
+		}else if (numList.equals(SET_ODD) || numList.equals(SET_EVEN)) {
+			this.__bet(numList, user_seed, BET_TYPES[3]);
 		}else {
-			this.__bet(numSet, user_seed, BET_TYPES[1]);
+			this.__bet(numList, user_seed, BET_TYPES[1]);
 		}
 	}
 
@@ -204,7 +198,7 @@ public class DaoletteGame {
 	@External
 	@Payable
 	public void bet_on_color(boolean color, String user_seed) {
-		Set<Integer> numbers;
+		List<Integer> numbers;
 		if (color) {
 			numbers = WHEEL_RED;
 		}else {
@@ -224,7 +218,7 @@ public class DaoletteGame {
 	@External
 	@Payable
 	public void bet_on_even_odd(boolean even_odd, String user_seed) {
-		Set<Integer> numbers;
+		List<Integer> numbers;
 		if (even_odd) {
 			numbers = WHEEL_ODD;
 		}else {
@@ -260,7 +254,10 @@ public class DaoletteGame {
 		}
 		double spin;
 		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + userSeed;
-		spin = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
+		//TODO: we can not do this in java, there is no way to access to the memory address from the icon-jvm-jdk.
+		//validate if the result is same as python
+		//( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
+		spin = fromByteArray( Context.hash("sha3-256", seed.getBytes())) % 100000 / 100000.0;
 		Context.println("Result of the spin was "+ spin + " "+ TAG);
 		return spin;
 	}
@@ -273,13 +270,13 @@ public class DaoletteGame {
     :type user_seed: str
     :return:
 	 */
-	public void __bet(Set<Integer> numbers, String user_seed, String bet_type) {
+	public void __bet(List<Integer> numbers, String user_seed, String bet_type) {
 
 		this.BetSource(Context.getOrigin(), BigInteger.valueOf(Context.getTransactionTimestamp()));
 
 		BigInteger treasuryMin = Context.call(BigInteger.class, this._treasury_score.get(),  "get_treasury_min");
 
-		String numberStr = numbers.stream().map(i-> i.toString()).collect(Collectors.joining(","));
+		String numberStr = listToListString(numbers);
 
 		if (!this._game_on.get()) {
 			Context.println("Game not active yet. "+ TAG);
@@ -301,10 +298,11 @@ public class DaoletteGame {
 			Context.revert("Invalid bet. Too many numbers submitted. Returning funds.");
 		}
 
-		Set<Integer> numset = new HashSet<>(WHEEL_ORDER);
-		numset.remove(0);
+		List<Integer> numList = List.of((Integer[])WHEEL_ORDER.toArray());
+		numList = ArrayUtils.removeElementIndex(numList,0);
+
 		for (Integer num :numbers) {
-			if  ( !numset.contains(num) ) {
+			if  ( !numList.contains(num) ) {
 				Context.println("Invalid number submitted. "+ TAG);
 				Context.revert("Please check your bet. Numbers must be between 0 and 20, submitted as a comma separated string. Returning funds.");
 			}
@@ -339,9 +337,9 @@ public class DaoletteGame {
 		}
 
 		double spin = this.get_random(user_seed);
-		Integer winningNumber = WHEEL_ORDER.stream().filter(i-> i == (int)(spin * 21) ).findFirst().orElse(0);
+		Integer winningNumber = null;//WHEEL_ORDER.stream().filter(i-> i == (int)(spin * 21) ).findFirst().orElse(0);
 		Context.println("winningNumber was "+winningNumber+". "+ TAG);
-		int win = numbers.stream().filter(i-> i.equals(winningNumber)).findFirst().orElse(0);
+		int win = 0; //numbers.stream().filter(i-> i.equals(winningNumber)).findFirst().orElse(0);
 		Context.println("win value was "+win +". "+ TAG);
 		payout = payout.multiply(BigInteger.valueOf(win));
 		this.BetResult(String.valueOf(spin), String.valueOf(winningNumber), payout);
@@ -389,4 +387,33 @@ public class DaoletteGame {
 		return json;
 	}
 
+	public Integer[] mapToInt(String[] array) {
+		Integer[] intArr = new Integer[array.length];
+
+		for(int i = 0; i < array.length; i++) {
+			intArr[i] = Integer.valueOf(array[i]);
+		}
+		return intArr;
+	}
+
+	public String listToListString(List<Integer> list) {
+		StringBuilder sb = new StringBuilder();
+		for(Integer i: list) {
+			sb.append(i.toString());
+			sb.append(",");
+		}
+		char c = sb.charAt(sb.length()-1);
+		if(c == ',') {
+			sb.deleteCharAt(sb.length()-1);
+		}
+		return sb.toString();
+
+	}
+
+	int fromByteArray(byte[] bytes) {
+	     return ((bytes[0] & 0xFF) << 24) | 
+	            ((bytes[1] & 0xFF) << 16) | 
+	            ((bytes[2] & 0xFF) << 8 ) | 
+	            ((bytes[3] & 0xFF) << 0 );
+	}
 }

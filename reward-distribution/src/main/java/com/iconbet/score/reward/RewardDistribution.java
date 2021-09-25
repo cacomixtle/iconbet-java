@@ -5,7 +5,6 @@ import static java.math.BigInteger.TWO;
 import static java.math.BigInteger.ZERO;
 
 import java.math.BigInteger;
-import java.util.HashMap;
 import java.util.Map;
 
 import score.Address;
@@ -26,25 +25,25 @@ public class RewardDistribution {
 	public static final boolean DEBUG = false;
 	public static final BigInteger TAP = BigInteger.valueOf(1000000000000000000l);
 
-	private String _WAGERS = "wagers";
-	private String _DAY = "day";
-	private String _EVEN_DAY = "even_day";
-	private String _ODD_DAY = "odd_day";
-	private String _EVEN_DAY_TOTAL = "even_day_total";
-	private String _ODD_DAY_TOTAL = "odd_day_total";
-	private String _WAGER_TOTAL = "wager_total";
+	private static String _WAGERS = "wagers";
+	private static String _DAY = "day";
+	private static String _EVEN_DAY = "even_day";
+	private static String _ODD_DAY = "odd_day";
+	private static String _EVEN_DAY_TOTAL = "even_day_total";
+	private static String _ODD_DAY_TOTAL = "odd_day_total";
+	private static String _WAGER_TOTAL = "wager_total";
 
-	private String _DAILY_DIST = "daily_dist";
-	private String _DIST_INDEX = "dist_index";
-	private String _DIST_COMPLETE = "dist_complete";
+	private static String _DAILY_DIST = "daily_dist";
+	private static String _DIST_INDEX = "dist_index";
+	private static String _DIST_COMPLETE = "dist_complete";
 
-	private String _GAME_SCORE = "game_score";
-	private String _TOKEN_SCORE = "token_score";
-	private String _DIVIDENDS_SCORE = "dividends_score";
-	private String _BATCH_SIZE = "batch_size";
+	private static String _GAME_SCORE = "game_score";
+	private static String _TOKEN_SCORE = "token_score";
+	private static String _DIVIDENDS_SCORE = "dividends_score";
+	private static String _BATCH_SIZE = "batch_size";
 
-	private String _REWARDS_GONE = "rewards_gone";
-	private String _YESTERDAYS_TAP_DISTRIBUTION = "yesterdays_tap_distribution";
+	private static String _REWARDS_GONE = "rewards_gone";
+	private static String _YESTERDAYS_TAP_DISTRIBUTION = "yesterdays_tap_distribution";
 
 	@EventLog(indexed=2)
 	public void FundTransfer(String sweep_to, BigInteger amount, String note) {}
@@ -53,29 +52,29 @@ public class RewardDistribution {
 	public void TokenTransfer(Address recipient, BigInteger amount) {}
 
 	//TODO: review this py dept = 2 data structure
-	private BranchDB<BigInteger, DictDB<String, BigInteger>> _wagers = Context.newBranchDB(this._WAGERS, BigInteger.class);
-	private VarDB<BigInteger> _day_index = Context.newVarDB(this._DAY, BigInteger.class);
-	private ArrayDB<String> _even_day_addresses = Context.newArrayDB(this._EVEN_DAY, String.class);
-	private ArrayDB<String> _odd_day_addresses = Context.newArrayDB(this._ODD_DAY, String.class);
+	private BranchDB<BigInteger, DictDB<String, BigInteger>> _wagers = Context.newBranchDB(_WAGERS, BigInteger.class);
+	private VarDB<BigInteger> _day_index = Context.newVarDB(_DAY, BigInteger.class);
+	private ArrayDB<String> _even_day_addresses = Context.newArrayDB(_EVEN_DAY, String.class);
+	private ArrayDB<String> _odd_day_addresses = Context.newArrayDB(_ODD_DAY, String.class);
 	@SuppressWarnings("unchecked")
 	private ArrayDB<String>[] _addresses = new ArrayDB[] {this._even_day_addresses, this._odd_day_addresses};
-	private VarDB<BigInteger> _even_day_total = Context.newVarDB(this._EVEN_DAY_TOTAL, BigInteger.class);
-	private VarDB<BigInteger> _odd_day_total = Context.newVarDB(this._ODD_DAY_TOTAL, BigInteger.class);
+	private VarDB<BigInteger> _even_day_total = Context.newVarDB(_EVEN_DAY_TOTAL, BigInteger.class);
+	private VarDB<BigInteger> _odd_day_total = Context.newVarDB(_ODD_DAY_TOTAL, BigInteger.class);
 	@SuppressWarnings("unchecked")
 	private VarDB<BigInteger>[] _daily_totals = new VarDB[] {this._even_day_total, this._odd_day_total};
-	private VarDB<BigInteger> _wager_total = Context.newVarDB(this._WAGER_TOTAL, BigInteger.class);
-	private VarDB<BigInteger> _daily_dist = Context.newVarDB(this._DAILY_DIST, BigInteger.class);
-	private VarDB<BigInteger> _dist_index = Context.newVarDB(this._DIST_INDEX, BigInteger.class);
-	private VarDB<Boolean> _dist_complete = Context.newVarDB(this._DIST_COMPLETE, Boolean.class);
+	private VarDB<BigInteger> _wager_total = Context.newVarDB(_WAGER_TOTAL, BigInteger.class);
+	private VarDB<BigInteger> _daily_dist = Context.newVarDB(_DAILY_DIST, BigInteger.class);
+	private VarDB<BigInteger> _dist_index = Context.newVarDB(_DIST_INDEX, BigInteger.class);
+	private VarDB<Boolean> _dist_complete = Context.newVarDB(_DIST_COMPLETE, Boolean.class);
 
-	private VarDB<Address> _game_score = Context.newVarDB(this._GAME_SCORE, Address.class);
-	private VarDB<Address> _token_score = Context.newVarDB(this._TOKEN_SCORE, Address.class);
-	private VarDB<Address> _dividends_score = Context.newVarDB(this._DIVIDENDS_SCORE, Address.class);
-	private VarDB<BigInteger> _batch_size = Context.newVarDB(this._BATCH_SIZE, BigInteger.class);
+	private VarDB<Address> _game_score = Context.newVarDB(_GAME_SCORE, Address.class);
+	private VarDB<Address> _token_score = Context.newVarDB(_TOKEN_SCORE, Address.class);
+	private VarDB<Address> _dividends_score = Context.newVarDB(_DIVIDENDS_SCORE, Address.class);
+	private VarDB<BigInteger> _batch_size = Context.newVarDB(_BATCH_SIZE, BigInteger.class);
 
 	// rewards gone variable checks if the 500M tap token held for distribution is completed
-	private VarDB<Boolean> _rewards_gone = Context.newVarDB(this._REWARDS_GONE, Boolean.class);
-	private VarDB<BigInteger> _yesterdays_tap_distribution = Context.newVarDB(this._YESTERDAYS_TAP_DISTRIBUTION, BigInteger.class);
+	private VarDB<Boolean> _rewards_gone = Context.newVarDB(_REWARDS_GONE, Boolean.class);
+	private VarDB<BigInteger> _yesterdays_tap_distribution = Context.newVarDB(_YESTERDAYS_TAP_DISTRIBUTION, BigInteger.class);
 
 	public RewardDistribution() {
 		Context.println("In __init__. "+ TAG);
@@ -251,28 +250,37 @@ public class RewardDistribution {
     :return: JSON data of yesterday's and today's players and their wagers
     :rtype: str
 	 */
+	@SuppressWarnings("unchecked")
 	@External(readonly=true)
 	public String get_daily_wager_totals() {
 		Context.println(Context.getCaller() +" is getting daily wagers. "+ TAG);
-		Map<String, BigInteger> today = new HashMap<>();
 		BigInteger index = this._day_index.get();
+
+		Map.Entry<String, BigInteger>[] today = new Map.Entry[this._addresses[index.intValue()].size()];
+		int j = 0;
+
 		for(int i =0 ; i < this._addresses[index.intValue()].size(); i++){
 			String address = this._addresses[index.intValue()].get(i);
 			BigInteger amount = this._wagers.at(index).get(address);
-			today.put(address, amount);
+			today[j] = Map.entry(address, amount);
+			j++;
 			Context.println("Wager amount of "+ amount+" being added. "+ TAG);
 		}
-		Map<String,BigInteger> yesterday = new HashMap<>();
+
 		index = this._day_index.get().add(ONE).mod(TWO);
+
+		Map.Entry<String, BigInteger>[] yesterday = new Map.Entry[this._addresses[index.intValue()].size()];
+		j = 0;
 		for(int i =0 ; i < this._addresses[index.intValue()].size(); i++){
 			String address = this._addresses[index.intValue()].get(i);
 			BigInteger amount = this._wagers.at(index).get(address);
-			yesterday.put(address, amount);
+			yesterday[j] = Map.entry(address, amount);
+			j++;
 			Context.println("Wager amount of "+ amount+" being added. "+ TAG);
 		}
 		Map<String, Map<String, BigInteger>> dailyWagers = Map.of(
-				"today", today,
-				"yesterday", yesterday
+				"today", Map.ofEntries(today),
+				"yesterday", Map.ofEntries(yesterday)
 				);
 		String json = mapToJsonString(dailyWagers);
 		Context.println("Wager totals " + json + " "+ TAG);
