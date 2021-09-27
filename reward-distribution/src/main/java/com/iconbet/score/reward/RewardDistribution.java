@@ -51,7 +51,7 @@ public class RewardDistribution {
 	@EventLog(indexed=2)
 	public void TokenTransfer(Address recipient, BigInteger amount) {}
 
-	//TODO: review this py dept = 2 data structure
+	//TODO: review this py dept = 2 data structure and possible null pointer ex.
 	private BranchDB<BigInteger, DictDB<String, BigInteger>> _wagers = Context.newBranchDB(_WAGERS, BigInteger.class);
 	private VarDB<BigInteger> _day_index = Context.newVarDB(_DAY, BigInteger.class);
 	private ArrayDB<String> _even_day_addresses = Context.newArrayDB(_EVEN_DAY, String.class);

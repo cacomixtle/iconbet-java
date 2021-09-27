@@ -1,18 +1,18 @@
 package com.iconbet.score.authorization;
 
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Map;
+
 import com.eclipsesource.json.Json;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonObject.Member;
 import com.eclipsesource.json.JsonValue;
 
-import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-
 import score.Address;
 import score.ArrayDB;
+import score.BranchDB;
 import score.Context;
 import score.DictDB;
 import score.VarDB;
@@ -46,13 +46,13 @@ public class Authorization{
 			
 	private static final BigInteger _1_ICX = new BigInteger("100000000000000000"); // 0.1 ICX = 10^18 * 0.1
 			
-	private static List<String> METADATA_FIELDS = Arrays.asList("name", "scoreAddress", "minBet", "maxBet", "houseEdge",
+	private static List<String> METADATA_FIELDS = List.of("name", "scoreAddress", "minBet", "maxBet", "houseEdge",
 	                                                      "gameType", "revShareMetadata", "revShareWalletAddress",
 	                                                      "linkProofPage", "gameUrlMainnet", "gameUrlTestnet");
 	
-	private static List<String> GAME_TYPE = Arrays.asList("Per wager settlement", "Game defined interval settlement");
+	private static List<String> GAME_TYPE = List.of("Per wager settlement", "Game defined interval settlement");
 	
-	private static List<String> STATUS_TYPE = Arrays.asList("waiting", "proposalApproved", "proposalRejected", "gameReady",
+	private static List<String> STATUS_TYPE = List.of("waiting", "proposalApproved", "proposalRejected", "gameReady",
                    "gameApproved", "gameRejected", "gameSuspended", "gameDeleted");
 
     private static final String ADMIN_LIST = "admin_list";
@@ -87,19 +87,19 @@ public class Authorization{
 	private final DictDB<Address,Address> owner_data = Context.newDictDB(OWNER_DATA, Address.class);
 	private final ArrayDB<Address> proposal_list = Context.newArrayDB(PROPOSAL_LIST, Address.class);
 	private final VarDB<BigInteger> day = Context.newVarDB(DAY, BigInteger.class);
-	private final DictDB<Address, BigInteger[]> wagers = Context.newDictDB(WAGERS, BigInteger[].class);
-	private final DictDB<Address, LinkedList> payouts = Context.newDictDB(PAYOUTS, LinkedList.class);
+	private final BranchDB<BigInteger, DictDB<Address,BigInteger>> wagers = Context.newBranchDB(WAGERS, BigInteger.class);
+	private final BranchDB<BigInteger, DictDB<Address, BigInteger>> payouts = Context.newBranchDB(PAYOUTS, BigInteger.class);
 	
 	private final VarDB<BigInteger> game_developers_share = Context.newVarDB(GAME_DEVELOPERS_SHARE, BigInteger.class);
 	private final DictDB<Address,BigInteger> todays_games_excess = Context.newDictDB(TODAYS_GAMES_EXCESS, BigInteger.class);
-	
+
 	private final VarDB<BigInteger> new_div_changing_time = Context.newVarDB(NEW_DIV_CHANGING_TIME, BigInteger.class);
-	private final DictDB<Address, LinkedList> games_excess_history = Context.newDictDB(GAMES_EXCESS_HISTORY, LinkedList.class);
+	private final BranchDB<BigInteger, DictDB<Address, BigInteger>> games_excess_history = Context.newBranchDB(GAMES_EXCESS_HISTORY, BigInteger.class);
 
 	private final VarDB<Boolean> apply_watch_dog_method = Context.newVarDB(APPLY_WATCH_DOG_METHOD, Boolean.class);
 	private final DictDB<Address,BigInteger> maximum_payouts = Context.newDictDB(MAXIMUM_PAYOUTS, BigInteger.class);
 	private final VarDB<BigInteger> maximum_loss = Context.newVarDB(MAXIMUM_LOSS, BigInteger.class);
-	        
+
 	@EventLog(indexed=2) 
 	public void FundTransfer(Address recipient, BigInteger amount, String note) {}     
 	        
@@ -138,9 +138,9 @@ public class Authorization{
 		
 		if (Context.getCaller().equals(Context.getOwner())) {
 			this.new_div_changing_time.set(_timestamp);
-			ArrayDB<Address> approved_games_list = get_approved_games();
-			for (int i= 0; i< approved_games_list.size(); i++ ) {
-				Address address = approved_games_list.get(i);
+			List<Address> approved_games_list = get_approved_games();
+			for (Address address: approved_games_list) {
+				//TODO: verify if we are removing the value correctly here, should we set to zero?
 				this.todays_games_excess.set(address, null);
 			}
 		}
@@ -159,22 +159,26 @@ public class Authorization{
 	  		
 	
 	@External(readonly = true)
-	public ArrayDB<Address> get_approved_games() {
+	public List<Address> get_approved_games() {
 	/***
 	    Returns all the approved games' Address
         :return: List of approved games
         :rtype: list	
 	 ***/
 		
-		 ArrayDB<Address> _proposal_list = Context.newArrayDB(PROPOSAL_LIST, Address.class);
+		 Address[] _proposal_list = new Address[this.proposal_list.size()];
+		 int j = 0;
 		 for (int i = 0; i< this.proposal_list.size();i++ ) {
 			 Address address = this.proposal_list.get(i);
 			 String gameApproved = this.status_data.get(address);
 			 if (gameApproved!=null &&  gameApproved.equals("gameApproved") ) {
-				 _proposal_list.add(address);
+				 _proposal_list[j] = address;
+				 j++;
 			 }
 		 }
-		 return _proposal_list;
+		 Address[] tmp = new Address[j];
+		 System.arraycopy(_proposal_list, 0, tmp, 0, j);
+		 return List.of(tmp);
 	}
 
 	@External
@@ -272,7 +276,7 @@ public class Authorization{
 	}
 	
 	@External(readonly = true)
-	public ArrayDB<Address> get_admin(){
+	public List<Address> get_admin(){
 		/**
         Returns all the admin list
         :return: List of admins
@@ -282,14 +286,13 @@ public class Authorization{
 		if (DEBUG) {
 			Context.println( Context.getOrigin().toString() + " is getting admin addresses." + TAG);
 		}
-		ArrayDB<Address> admin_list = Context.newArrayDB(ADMIN_LIST, Address.class);
+		Address[] admin_list = new Address[this.admin_list.size()];
 		for(int i= 0; i< this.admin_list.size(); i++) {
-			Address address = admin_list.get(i);
-			this.admin_list.add(address);
+			admin_list[i] = this.admin_list.get(i);
 		}
-		return admin_list;
+		return List.of(admin_list);
 	}
-	
+
 	@External
 	public void remove_admin(Address _admin) {
 		/***
@@ -404,10 +407,10 @@ public class Authorization{
         :return:
         ***/
 		Address sender = Context.getCaller();
-		if (!containsInArrayDb(sender, this.get_admin())) {
+		if ( !this.get_admin().contains(sender)) {
 			Context.revert("Sender not an admin");
 		}
-		if (!this.STATUS_TYPE.contains(_status)) {
+		if (!STATUS_TYPE.contains(_status)) {
 			Context.revert("Invalid status");
 		}
 		String statusScoreAddress = this.status_data.get(_scoreAddress);
@@ -474,7 +477,7 @@ public class Authorization{
         
 		if ( this.apply_watch_dog_method.get()) {
 			String maxPayoutStr = getValueFromItem(_metadata,"maxPayout");
-			if (!maxPayoutStr.isBlank()) {
+			if (!maxPayoutStr.isEmpty()) {
 				BigInteger maxPayout = new BigInteger(maxPayoutStr);
             	if (maxPayout.compareTo(_1_ICX) == -1) {
             		Context.revert(maxPayout.toString()+" is less than 0.1 ICX");
@@ -486,13 +489,13 @@ public class Authorization{
 		
 		// Check if name is empty
 		String nameStr = getValueFromItem(_metadata,"name");
-		if (nameStr.isBlank()) {
+		if (nameStr.isEmpty()) {
 			Context.revert("Game name cant be empty");
 		}
 		
 		// check if scoreAddress is a valid contract address
 		String scoreAddressStr = getValueFromItem(_metadata,"name");
-		if (!scoreAddressStr.isBlank()) {
+		if (!scoreAddressStr.isEmpty()) {
 			Address scoreAddress = Address.fromString(scoreAddressStr);
 			if (!scoreAddress.isContract()) {
 				Context.revert(scoreAddress.toString() +" is not a valid contract address");
@@ -543,10 +546,10 @@ public class Authorization{
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());
 		BigInteger day = now.divide(U_SECONDS_DAY);
-			
-		BigInteger wagerValue = getWager(game)[day.intValue()];
-		getWager(game)[day.intValue()] = wagerValue.add(wager);
-		
+
+		BigInteger wagerValue = this.wagers.at(day).get(game);
+		this.wagers.at(day).set(game,  wager.add(wagerValue));
+
 		BigInteger newTime =this.new_div_changing_time.get();
 
 		if ( newTime!= null && now.compareTo(newTime)>=1 ) {
@@ -555,10 +558,10 @@ public class Authorization{
 		}
 				
 	}
-	
-	
+
+	@SuppressWarnings("unchecked")
 	@External(readonly = true)
-	public DictDB<Address, BigInteger[]> get_daily_wagers(BigInteger day) {
+	public Map<String, String> get_daily_wagers(BigInteger day) {
 		/***
         Get daily wagers for a game in a particular day
         :param day: Index of the day for which wagers is to be returned,
@@ -572,15 +575,15 @@ public class Authorization{
 			day.add(now.divide(U_SECONDS_DAY));			
 		}
 		
-		 DictDB<Address, BigInteger[]> wagers = Context.newDictDB("wagers", BigInteger[].class);
+		 Map.Entry<String, String>[] wagers = new Map.Entry[this.get_approved_games().size()];
 		 
 		for (int i= 0; i< this.get_approved_games().size(); i++ ) {
 			Address game = this.get_approved_games().get(i);
-			wagers.get(game)[i] = getWagerReadOnly(game)[day.intValue()];
+			wagers[i] = Map.entry(game.toString(), String.valueOf(this.wagers.at(day).get(game)) );
 		}
-		return wagers;
+		return Map.ofEntries(wagers);
 	}
-	
+
 	@External
 	public boolean accumulate_daily_payouts(Address game, BigInteger payout) {
 		/***
@@ -609,13 +612,14 @@ public class Authorization{
 							". MaxPayout for this game: "+this.maximum_payouts.get(game) +
 							". "+ TAG);
 				}
-				BigInteger payOutDay = getPayOut(game).get(day.intValue());
+
+				BigInteger payOutDay =  this.payouts.at(day).get(game);
 				if (payOutDay == null) {
 					payOutDay = BigInteger.ZERO;
 				}
-				
+
 				payOutDay = payOutDay.add(payout);
-				BigInteger wagerDay = getWager(game)[day.intValue()];
+				BigInteger wagerDay = this.wagers.at(day).get(game);
 				BigInteger incurred = payOutDay.subtract(wagerDay);
 				if(incurred.compareTo(this.maximum_loss.get()) >= 1) {
 					Context.revert("Limit loss. MaxLoss: " +this.maximum_loss.get()+". Loss Incurred if payout: "+
@@ -629,9 +633,9 @@ public class Authorization{
 			}
 			
 		}
-		
-		BigInteger newPayOut = getPayOut(game).get(day.intValue());
-		getPayOut(game).set(day.intValue(), newPayOut.add(payout));
+
+		BigInteger newPayOut = this.payouts.at(day).get(game);
+		this.payouts.at(day).set(game, payout.add(newPayOut));
 
 		if ( this.new_div_changing_time.get() != null && 
 				this.new_div_changing_time.get().compareTo(BigInteger.ZERO) != 0 &&
@@ -644,8 +648,9 @@ public class Authorization{
 	
 	
 	//Question   def get_daily_payouts(self, day: int = 0 ?? initilize if null?
+	@SuppressWarnings("unchecked")
 	@External(readonly = true)
-	public DictDB<Address, BigInteger[]> get_daily_payouts(BigInteger day) {
+	public Map<String, String> get_daily_payouts(BigInteger day) {
 		/***
         Get daily payouts for a game in a particular day
         :param day: Index of the day for which payouts is to be returned
@@ -658,13 +663,14 @@ public class Authorization{
 			day = day.add(now.divide(U_SECONDS_DAY));
 		}
 		
-		DictDB<Address, BigInteger[]> payouts = Context.newDictDB("payouts", BigInteger[].class);
+
+		Map.Entry<String, String>[] payouts = new Map.Entry[this.get_approved_games().size()];  
 
 		for (int i=0; i<this.get_approved_games().size(); i++) {
 			Address game = this.get_approved_games().get(i);
-			payouts.get(game)[i] = getPayOutReadOnly(game).get(day.intValue());
+			payouts[i] = Map.entry(game.toString(), String.valueOf(this.payouts.at(day).get(game)));
 		}
-		return payouts;
+		return Map.ofEntries(payouts);
 	}
 
 	@External(readonly = true)
@@ -692,23 +698,21 @@ public class Authorization{
 		
 		return this.proposal_data.get(_scoreAddress);
 	}
-	
-	//question ?   def get_score_list(self) -> list or rayDB<Address> ??
+
 	@External(readonly = true)
-	public ArrayDB<Address> get_score_list(){
+	public List<Address> get_score_list(){
 		/***
         Returns all the games' Address regardless of their status.
         :return: List of games' Address
         :rtype: list
         ***/
 		
-		ArrayDB<Address> proposal_list = Context.newArrayDB("proposal_list", Address.class);
+		Address[] proposal_list = new Address[this.proposal_list.size()];
 
 		for(int i= 0; i< this.proposal_list.size(); i++) {
-			Address scoreAddress = this.proposal_list.get(i);
-			proposal_list.add(scoreAddress);
+			proposal_list[i] = this.proposal_list.get(i);
 		}		
-		return proposal_list;
+		return List.of(proposal_list);
 	}
 
 	@External(readonly = true)
@@ -811,7 +815,7 @@ public class Authorization{
 		for (int i= 0; i< this.get_approved_games().size(); i++ ) {
 			Address game = this.get_approved_games().get(i);
 			BigInteger game_excess =  this.todays_games_excess.get(game);
-			getGamesExcessHistory(game).set(day.intValue() - 1 , game_excess);
+			this.games_excess_history.at(day.subtract(BigInteger.ONE)).set(game, game_excess);
 			if (game_excess!= null &&
 					game_excess.compareTo(BigInteger.ZERO)>= 0) {
 				positive_excess = positive_excess.add(game_excess);
@@ -820,34 +824,35 @@ public class Authorization{
 		}
 		game_developers_amount = this.game_developers_share.get().multiply(positive_excess);
 		game_developers_amount = game_developers_amount.divide(BigInteger.valueOf(100L));
-		
+
 		return game_developers_amount;
 	}
         	
 	
 	
 	// questions dict =  DictDB<Address, BigInteger[]>  ???
+	@SuppressWarnings("unchecked")
 	@External(readonly = true)
-	public DictDB<Address, BigInteger[]> get_todays_games_excess() {
+	public Map<String, String> get_todays_games_excess() {
 		/***
         Returns the todays excess of the game. The excess is reset to 0 if it
         remains positive at the end of the day.
         :return: Returns the excess of games at current time
         ***/
-		DictDB<Address, BigInteger[]> games_excess = Context.newDictDB("games_excess", BigInteger[].class);
+		Map.Entry<String, String>[] games_excess = new Map.Entry[this.get_approved_games().size()];
 
 		for (int i= 0; i<this.get_approved_games().size(); i++ ) {
 			Address game = this.get_approved_games().get(i);
-			games_excess.get(game)[i] = this.todays_games_excess.get(game);
+			games_excess[i] = Map.entry(game.toString(), String.valueOf(this.todays_games_excess.get(game)));
 		}
 		
-		return games_excess;		
+		return Map.ofEntries(games_excess);
 	}
 
-	
-	// questions dict =  DictDB<Address, BigInteger[]>  ???
+
+	@SuppressWarnings("unchecked")
 	@External(readonly = true)
-	public DictDB<Address, BigInteger[]> get_games_excess(BigInteger day) {
+	public Map<String, String> get_games_excess(BigInteger day) {
 		/***
         Returns a dictionary with game addresses as keys and the excess as the
         values for the specified day.
@@ -861,18 +866,16 @@ public class Authorization{
 			BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
 			day = day.add(now.divide(U_SECONDS_DAY));
 		}
-		DictDB<Address, BigInteger[]> games_excess = Context.newDictDB("games_excess", BigInteger[].class);
+		Map.Entry<String, String>[] games_excess = new Map.Entry[this.get_approved_games().size()];
 		for(int i= 0; i< this.get_approved_games().size(); i++) {
 			Address game = this.get_approved_games().get(i);
-			games_excess.get(game)[i] = getGamesExcessHistoryReadOnly(game).get(day.intValue());
+			games_excess[i] = Map.entry(game.toString(), String.valueOf(this.games_excess_history.at(day).get(game)));
 		}
-		
-		return games_excess;
+		return Map.ofEntries(games_excess);
 	}
-	
-	// questions dict =  DictDB<Address, BigInteger[]>  ???
+
 	@External(readonly = true)
-	public DictDB<Address, BigInteger[]> get_yesterdays_games_excess(){
+	public Map<String, String> get_yesterdays_games_excess(){
 		/***
         Returns the dictionary containing keys as games address and value as
         excess of the game of yesterday
@@ -894,7 +897,7 @@ public class Authorization{
 			Context.revert("maxLoss is set to a value less than 0.1 ICX");
 		}
 		Address sender = Context.getCaller();
-		if (!containsInArrayDb(sender, this.get_admin())) {
+		if (!this.get_admin().contains(sender)) {
 			Context.revert("Sender not an admin");
 		}
 		this.maximum_loss.set(maxLoss);
@@ -916,7 +919,7 @@ public class Authorization{
 			Context.revert("Game has not been submitted.");
 		}
 		Address sender = Context.getCaller();
-		if (!containsInArrayDb(sender, this.get_admin())) {
+		if (!this.get_admin().contains(sender)) {
 			Context.revert("Sender not an admin");
 		}
 		this.maximum_payouts.set(game, maxPayout);
@@ -935,7 +938,7 @@ public class Authorization{
 	@External
 	public void toggle_apply_watch_dog_method() {
 		Address sender = Context.getCaller();
-		if (!containsInArrayDb(sender, this.get_admin())) {
+		if (!this.get_admin().contains(sender)) {
 			Context.revert("Sender not an admin");
 		}
 		boolean old_watch_dog_status = this.apply_watch_dog_method.get();
@@ -992,69 +995,5 @@ public class Authorization{
 		}
 		return found;
 	}
-	
-	private LinkedList<BigInteger> getGamesExcessHistory(Address game){
-		LinkedList<BigInteger> games = this.games_excess_history.get(game);
-		if(games == null) {
-			games = new LinkedList<BigInteger>();
-			this.payouts.set(game, games);
-		}
-		return this.games_excess_history.get(game);
-	}
-	
-	private LinkedList<BigInteger> getGamesExcessHistoryReadOnly(Address game){
-		LinkedList<BigInteger> games = this.games_excess_history.get(game);
-		if(games == null) {
-			games = new LinkedList<BigInteger>();
-		}
-		return games;
-	}
-	
-	private LinkedList<BigInteger> getPayOut(Address game){
-		LinkedList<BigInteger> payOut = this.payouts.get(game);
-		if(payOut == null) {
-			payOut = new LinkedList<BigInteger>();
-			this.payouts.set(game, payOut);
-		}
-		return this.payouts.get(game);
-	}
-	
-	private LinkedList<BigInteger> getPayOutReadOnly(Address game){
-		LinkedList<BigInteger> payOut = this.payouts.get(game);
-		if(payOut == null) {
-			payOut = new LinkedList<BigInteger>();
-		}
-		return payOut;
-	}
-	
-	
-	private BigInteger[] getWager(Address game) {
-		DictDB<Address, BigInteger[]> initWager = getInitWager(game);
-		return initWager.get(game);
-	}
-	
-	private BigInteger[] getWagerReadOnly(Address game) {
-		BigInteger[] value = this.wagers.get(game);	
-		if (value == null) {
-			value = new BigInteger[365];
-			for(int i= 0; i<=365; i++) {
-				value[i] = BigInteger.ZERO;
-			}
-		}
-		return value;
-	}
-	
-	private DictDB<Address, BigInteger[]> getInitWager(Address game) {
-		
-		BigInteger[] value = this.wagers.get(game);
-		if (value == null) {
-			value = new BigInteger[365];
-			for(int i= 0; i<=365; i++) {
-				value[i] = BigInteger.ZERO;
-			}
-			this.wagers.set(game, value);
-		}
-		return this.wagers;
-	}
-	
+
 }
