@@ -337,9 +337,9 @@ public class DaoletteGame {
 		}
 
 		double spin = this.get_random(user_seed);
-		Integer winningNumber = null;//WHEEL_ORDER.stream().filter(i-> i == (int)(spin * 21) ).findFirst().orElse(0);
+		Integer winningNumber = WHEEL_ORDER.get((int)(spin * 21));
 		Context.println("winningNumber was "+winningNumber+". "+ TAG);
-		int win = 0; //numbers.stream().filter(i-> i.equals(winningNumber)).findFirst().orElse(0);
+		int win = numbers.contains(winningNumber)? 1: 0;
 		Context.println("win value was "+win +". "+ TAG);
 		payout = payout.multiply(BigInteger.valueOf(win));
 		this.BetResult(String.valueOf(spin), String.valueOf(winningNumber), payout);

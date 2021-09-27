@@ -1,8 +1,5 @@
 package com.iconbet.score.daodice;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -20,27 +17,28 @@ public class DaoDice {
 	public static boolean DEBUG = Boolean.TRUE;
 	public static BigInteger UPPER_LIMIT = BigInteger.valueOf(99);
 	public static BigInteger LOWER_LIMIT = BigInteger.ZERO;
-	public static BigDecimal MAIN_BET_MULTIPLIER = BigDecimal.valueOf(98.5);
-	public static BigDecimal SIDE_BET_MULTIPLIER = BigDecimal.valueOf(95);
+	public static Double MAIN_BET_MULTIPLIER = 98.5;
+	public static Double SIDE_BET_MULTIPLIER = 95d;
 	public static final BigInteger BET_MIN = new BigInteger("100000000000000000"); // 0.1 ICX = 10^18 * 0.1
-	public static final BigDecimal FIVE = BigDecimal.valueOf(5);
+
+	public static final Double FIVE = 5d;
 	public static final BigInteger _1140 = BigInteger.valueOf(1140);
 	public static final BigInteger _540 = BigInteger.valueOf(540);
 	public static final BigInteger _12548 = BigInteger.valueOf(12548);
 	public static final BigInteger _11 = BigInteger.valueOf(11);
 	public static final BigInteger _99 = BigInteger.valueOf(99);
 	public static final BigInteger _95 = BigInteger.valueOf(95);
-	public static final BigDecimal _100D = BigDecimal.valueOf(100);
-	public static final BigInteger _100I = BigInteger.valueOf(100);
-	public static final BigDecimal _1_5D = BigDecimal.valueOf(1.5);
-	public static final BigDecimal _68134 = BigDecimal.valueOf(68134);
-	public static final BigDecimal _681_34 = BigDecimal.valueOf(681.34);
+	public static final BigInteger _100 = BigInteger.valueOf(100);
+	public static final Double _100D = 100d;
+	public static final Double _1_5D = 1.5;
+	public static final Integer _68134 = 68134;
+	public static final Double _681_34 = 681.34;
 
 	
 	
 	
 	public static List<String> SIDE_BET_TYPES = List.of("digits_match", "icon_logo1", "icon_logo2");
-	public static Map<String, BigDecimal> SIDE_BET_MULTIPLIERS = Map.of("digits_match",MAIN_BET_MULTIPLIER, "icon_logo1", FIVE, "icon_logo2", SIDE_BET_MULTIPLIER );
+	public static Map<String, Double> SIDE_BET_MULTIPLIERS = Map.of("digits_match",MAIN_BET_MULTIPLIER, "icon_logo1", FIVE, "icon_logo2", SIDE_BET_MULTIPLIER );
 	public static Map<String, BigInteger> BET_LIMIT_RATIOS_SIDE_BET = Map.of("digits_match", _1140, "icon_logo1", _540, "icon_logo2", _12548 );
 	
 	private final String _GAME_ON = "game_on";
@@ -157,7 +155,7 @@ public class DaoDice {
         :rtype: bool
 	***/
 	@External(readonly = true)
-	public Boolean get_game_on() {
+	public boolean get_game_on() {
 		return this._game_on.get();
 	}
 	
@@ -168,8 +166,8 @@ public class DaoDice {
         :rtype: dict
 	***/
 	@External(readonly = true)
-	public Map<String, BigDecimal> get_side_bet_multipliers() {
-		return SIDE_BET_MULTIPLIERS;	
+	public Map<String, Double> get_side_bet_multipliers() {
+		return SIDE_BET_MULTIPLIERS;
 	}
 	
 	/***
@@ -196,7 +194,7 @@ public class DaoDice {
 	 :return: Number from [x / 100000.0 for x in range(100000)]
 	 :rtype: float
 	***/
-	public BigDecimal get_random(String user_seed) {
+	public double get_random(String user_seed) {
 		Context.println("Entered get_random. " + TAG);
 		Address sender = Context.getCaller();
 		if (sender.isContract()) {
@@ -204,14 +202,13 @@ public class DaoDice {
 		}
 		
 		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + user_seed;
-		double spinFloat = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
-		BigDecimal spin = BigDecimal.valueOf(spinFloat);
-				
-		Context.println("Result of the spin was " + spin.toString() +" "+ TAG);
+		double spin = fromByteArray( Context.hash("sha3-256", seed.getBytes())) % 100000 / 100000.0;
+
+		Context.println("Result of the spin was " + spin +" "+ TAG);
 		return spin;
 	}
-	
-	
+
+
 	/***
         Main bet function. It takes the upper and lower number for bet. Upper and lower number must be in the range
         [0,99]. The difference between upper and lower can be in the range of [0,95].
@@ -291,8 +288,8 @@ public class DaoDice {
 				Context.println("Betting amount " + side_bet_amount.toString() +" out of range. "+TAG);
 				Context.revert("Betting amount "+side_bet_amount.toString() +" out of range ("+BET_MIN.toString() +" ,"+side_bet_limit.toString()+").");		
 			}
-			BigInteger result = SIDE_BET_MULTIPLIERS.get(side_bet_type).multiply(_100D).toBigInteger();
-			side_bet_payout = result.multiply(side_bet_amount).divide(_100I);
+			side_bet_payout =  BigInteger.valueOf( (int) (SIDE_BET_MULTIPLIERS.get(side_bet_type) * _100D) )
+					.multiply(side_bet_amount).divide(_100);
 		}
 		
 		main_bet_amount = Context.getValue().subtract(side_bet_amount);
@@ -304,19 +301,19 @@ public class DaoDice {
 			Context.revert("No main bet amount provided");				
 		}
 		
-		BigDecimal main_bet_limit = BigDecimal.ZERO;
-		BigDecimal _treasury_minD = new BigDecimal(_treasury_min);
-		BigDecimal main_bet_limitResult =  _treasury_minD.multiply(_1_5D).multiply(new BigDecimal(gap));
-		BigDecimal newRange = _68134.subtract(_681_34).multiply(new BigDecimal(gap)) ;
-		main_bet_limit = main_bet_limitResult.divide(newRange);
-		
-		if ( BET_MIN.compareTo(main_bet_amount)== 1 || main_bet_amount.compareTo(main_bet_limit.toBigInteger()) == 1) {
+        // l = ( t * 1.5 * g) / [68134 - (681.34 * g)]  = t * {(1.5 * g) / [68134 - (681.34 * g)]}
+		BigInteger main_bet_limit = _treasury_min.multiply( BigInteger.valueOf((long) ( 
+				(_1_5D * gap.intValue()) / 
+				(_68134 - (_681_34 * gap.intValue() ))
+				)));
+
+		if ( BET_MIN.compareTo(main_bet_amount)== 1 || main_bet_amount.compareTo(main_bet_limit) == 1) {
 			Context.println("Betting amount "+main_bet_amount.toString() +" out of range. "+TAG);
-			Context.revert("Main Bet amount {"+main_bet_amount.toString() +"} out of range {"+BET_MIN.toString()+"},{"+main_bet_limit.toEngineeringString()+"}");				
+			Context.revert("Main Bet amount {"+main_bet_amount.toString() +"} out of range {"+BET_MIN.toString()+"},{"+main_bet_limit.toString()+"}");
 		}
 		
-		BigInteger main_bet_payoutResult = MAIN_BET_MULTIPLIER.multiply(_100D).toBigInteger().multiply(main_bet_amount);
-		BigInteger main_bet_payout = main_bet_payoutResult.divide(_100I.multiply(gap));
+		BigInteger main_bet_payoutResult = BigInteger.valueOf( (long)(MAIN_BET_MULTIPLIER * _100D) ).multiply(main_bet_amount);
+		BigInteger main_bet_payout = main_bet_payoutResult.divide(_100.multiply(gap));
 		
 		BigInteger payout = side_bet_payout.add(main_bet_payout);
 		BigInteger balance = Context.getBalance(this._roulette_score.get());
@@ -324,8 +321,8 @@ public class DaoDice {
 			Context.println("Not enough in treasury to make the play. "+TAG);
 			Context.revert("Not enough in treasury to make the play.");
 		}
-		BigDecimal spin = get_random(user_seed);
-		BigInteger winningNumber = spin.multiply(_100D).toBigInteger();
+		double spin = get_random(user_seed);
+		BigInteger winningNumber = BigInteger.valueOf( (long)(spin * _100D));
 		Context.println("winningNumber was {"+winningNumber.toString()+"}. "+TAG);
 		
 		if (lower.compareTo(winningNumber) <= 0 && 
@@ -341,12 +338,12 @@ public class DaoDice {
 				side_bet_payout = BigInteger.ZERO;
 			}
 		}
-		
+
 		main_bet_payout = main_bet_payout.multiply(main_bet_win?BigInteger.ONE:BigInteger.ZERO);
 		payout = main_bet_payout.add(side_bet_payout);
-		BetResult(spin.toString(), winningNumber, payout);
+		BetResult(String.valueOf(spin), winningNumber, payout);
 		PayoutAmount(payout, main_bet_payout, side_bet_payout);
-		
+
 		if (main_bet_win || side_bet_win) {
 			Context.println("Amount owed to winner: {"+payout.toString()+"}. "+TAG);			
 			try {
@@ -409,5 +406,12 @@ public class DaoDice {
 		hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
 		hexDigits[1] = Character.forDigit((num & 0xF), 16);
 		return new String(hexDigits);
+	}
+
+	int fromByteArray(byte[] bytes) {
+	     return ((bytes[0] & 0xFF) << 24) | 
+	            ((bytes[1] & 0xFF) << 16) | 
+	            ((bytes[2] & 0xFF) << 8 ) | 
+	            ((bytes[3] & 0xFF) << 0 );
 	}
 }

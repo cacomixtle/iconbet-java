@@ -1,15 +1,8 @@
 package com.iconbet.score.daolette;
 
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import score.Address;
 import score.ArrayDB;
@@ -38,87 +31,87 @@ public class Daolette{
 	private static final BigInteger DIST_DURATION_PARAM = BigInteger.valueOf(50);  // Units of 1/Days
 
 	private static final String[] BET_TYPES = new String[] {"none", "bet_on_numbers", "bet_on_color", "bet_on_even_odd", "bet_on_number", "number_factor"};
-	private static final Set<Integer> WHEEL_ORDER = new HashSet<>(Arrays.asList(2, 20, 3, 17, 6, 16, 7, 13, 10, 12,
-			11, 9, 14, 8, 15, 5, 18, 4, 19, 1, 0));
-	private static final Set<Integer> WHEEL_BLACK = new HashSet<>(Arrays.asList(2,3,6,7,10,11,14,15,18,19));
-	private static final Set<Integer> SET_BLACK = new HashSet<>(Arrays.asList(2, 3, 6, 7, 10, 11, 14, 15, 18, 19));
-	private static final Set<Integer> WHEEL_RED = new HashSet<>( Arrays.asList(1,4,5,8,9,12,13,16,17,20));
-	private static final Set<Integer> SET_RED = new HashSet<>(Arrays.asList(1, 4, 5, 8, 9, 12, 13, 16, 17, 20));
-	private static final Set<Integer> WHEEL_ODD = new HashSet<>( Arrays.asList(1,3,5,7,9,11,13,15,17,19));
-	private static final Set<Integer> SET_ODD = new HashSet<>( Arrays.asList(1, 3, 5, 7, 9, 11, 13, 15, 17, 19));
-	private static final Set<Integer> WHEEL_EVEN = new HashSet<>( Arrays.asList(2,4,6,8,10,12,14,16,18,20));
-	private static final Set<Integer> SET_EVEN = new HashSet<>( Arrays.asList(2, 4, 6, 8, 10, 12, 14, 16, 18, 20));
+	private static final List<Integer> WHEEL_ORDER = List.of(2, 20, 3, 17, 6, 16, 7, 13, 10, 12,
+			11, 9, 14, 8, 15, 5, 18, 4, 19, 1, 0);
+	private static final List<Integer> WHEEL_BLACK = List.of(2,3,6,7,10,11,14,15,18,19);
+	private static final List<Integer> SET_BLACK = List.of(2, 3, 6, 7, 10, 11, 14, 15, 18, 19);
+	private static final List<Integer> WHEEL_RED = List.of(1,4,5,8,9,12,13,16,17,20);
+	private static final List<Integer> SET_RED = List.of(1, 4, 5, 8, 9, 12, 13, 16, 17, 20);
+	private static final List<Integer> WHEEL_ODD = List.of(1,3,5,7,9,11,13,15,17,19);
+	private static final List<Integer> SET_ODD = List.of(1, 3, 5, 7, 9, 11, 13, 15, 17, 19);
+	private static final List<Integer> WHEEL_EVEN = List.of(2,4,6,8,10,12,14,16,18,20);
+	private static final List<Integer> SET_EVEN = List.of(2, 4, 6, 8, 10, 12, 14, 16, 18, 20);
 	private static final Map<String, Float> MULTIPLIERS = Map.of("bet_on_color", 2f,
 			"bet_on_even_odd", 2f,
 			"bet_on_number", 20f,
 			"number_factor", 20.685f);
 
-	private String _EXCESS = "house_excess";
-	private String _EXCESS_TO_DISTRIBUTE = "excess_to_distribute";
+	private static String _EXCESS = "house_excess";
+	private static String _EXCESS_TO_DISTRIBUTE = "excess_to_distribute";
 
-	private String _TOTAL_DISTRIBUTED = "total_distributed";
-	private String _GAME_ON = "game_on";
+	private static String _TOTAL_DISTRIBUTED = "total_distributed";
+	private static String _GAME_ON = "game_on";
 
-	private String _BET_TYPE = "bet_type";
-	private String _TREASURY_MIN = "treasury_min";
-	private String _BET_LIMITS = "bet_limits";
-	private String _DAY = "day";
-	private String _SKIPPED_DAYS = "skipped_days";
-	private String _DAILY_BET_COUNT = "daily_bet_count";
-	private String _TOTAL_BET_COUNT = "total_bet_count";
-	private String _YESTERDAYS_BET_COUNT = "yesterdays_bet_count";
-	private String _TOKEN_SCORE = "token_score";
-	private String _REWARDS_SCORE = "rewards_score";
-	private String _DIVIDENDS_SCORE = "dividends_score";
+	private static String _BET_TYPE = "bet_type";
+	private static String _TREASURY_MIN = "treasury_min";
+	private static String _BET_LIMITS = "bet_limits";
+	private static String _DAY = "day";
+	private static String _SKIPPED_DAYS = "skipped_days";
+	private static String _DAILY_BET_COUNT = "daily_bet_count";
+	private static String _TOTAL_BET_COUNT = "total_bet_count";
+	private static String _YESTERDAYS_BET_COUNT = "yesterdays_bet_count";
+	private static String _TOKEN_SCORE = "token_score";
+	private static String _REWARDS_SCORE = "rewards_score";
+	private static String _DIVIDENDS_SCORE = "dividends_score";
 
-	private String _VOTE = "vote";
-	private String _VOTED = "voted";
-	private String _YES_VOTES = "yes_votes";
-	private String _NO_VOTES = "no_votes";
-	private String _OPEN_TREASURY = "open_treasury";
-	private String _GAME_AUTH_SCORE = "game_auth_score";
+	private static String _VOTE = "vote";
+	private static String _VOTED = "voted";
+	private static String _YES_VOTES = "yes_votes";
+	private static String _NO_VOTES = "no_votes";
+	private static String _OPEN_TREASURY = "open_treasury";
+	private static String _GAME_AUTH_SCORE = "game_auth_score";
 
-	private String _NEW_DIV_LIVE = "new_div_live";
-	private String _TREASURY_BALANCE = "treasury_balance";
+	private static String _NEW_DIV_LIVE = "new_div_live";
+	private static String _TREASURY_BALANCE = "treasury_balance";
 
-	private String _EXCESS_SMOOTHING_LIVE = "excess_smoothing_live";
+	private static String _EXCESS_SMOOTHING_LIVE = "excess_smoothing_live";
 
-	private String _DAOFUND_SCORE = "daofund_score";
-	private String _YESTERDAYS_EXCESS = "yesterdays_excess";
-	private String _DAOFUND_TO_DISTRIBUTE = "daofund_to_distribute";
+	private static String _DAOFUND_SCORE = "daofund_score";
+	private static String _YESTERDAYS_EXCESS = "yesterdays_excess";
+	private static String _DAOFUND_TO_DISTRIBUTE = "daofund_to_distribute";
 
-	private VarDB<BigInteger> _excess = Context.newVarDB(this._EXCESS, BigInteger.class);
-	private VarDB<BigInteger> _total_distributed = Context.newVarDB(this._TOTAL_DISTRIBUTED, BigInteger.class);
-	private VarDB<Boolean> _game_on = Context.newVarDB(this._GAME_ON, Boolean.class);
-	private VarDB<String> _bet_type = Context.newVarDB(this._BET_TYPE, String.class);
-	private VarDB<BigInteger> _treasury_min = Context.newVarDB(this._TREASURY_MIN, BigInteger.class);
-	private DictDB<BigInteger, BigInteger> _bet_limits = Context.newDictDB(this._BET_LIMITS, BigInteger.class);
-	private VarDB<BigInteger> _day = Context.newVarDB(this._DAY, BigInteger.class);
-	private VarDB<BigInteger> _skipped_days = Context.newVarDB(this._SKIPPED_DAYS, BigInteger.class);
-	private VarDB<BigInteger> _total_bet_count = Context.newVarDB(this._TOTAL_BET_COUNT, BigInteger.class);
-	private VarDB<BigInteger> _daily_bet_count = Context.newVarDB(this._DAILY_BET_COUNT, BigInteger.class);
-	private VarDB<BigInteger> _yesterdays_bet_count = Context.newVarDB(this._YESTERDAYS_BET_COUNT, BigInteger.class);
-	private VarDB<Address> _token_score = Context.newVarDB(this._TOKEN_SCORE, Address.class);
-	private VarDB<Address> _rewards_score = Context.newVarDB(this._REWARDS_SCORE, Address.class);
-	private VarDB<Address> _dividends_score = Context.newVarDB(this._DIVIDENDS_SCORE, Address.class);
+	private VarDB<BigInteger> _excess = Context.newVarDB(_EXCESS, BigInteger.class);
+	private VarDB<BigInteger> _total_distributed = Context.newVarDB(_TOTAL_DISTRIBUTED, BigInteger.class);
+	private VarDB<Boolean> _game_on = Context.newVarDB(_GAME_ON, Boolean.class);
+	private VarDB<String> _bet_type = Context.newVarDB(_BET_TYPE, String.class);
+	private VarDB<BigInteger> _treasury_min = Context.newVarDB(_TREASURY_MIN, BigInteger.class);
+	private DictDB<BigInteger, BigInteger> _bet_limits = Context.newDictDB(_BET_LIMITS, BigInteger.class);
+	private VarDB<BigInteger> _day = Context.newVarDB(_DAY, BigInteger.class);
+	private VarDB<BigInteger> _skipped_days = Context.newVarDB(_SKIPPED_DAYS, BigInteger.class);
+	private VarDB<BigInteger> _total_bet_count = Context.newVarDB(_TOTAL_BET_COUNT, BigInteger.class);
+	private VarDB<BigInteger> _daily_bet_count = Context.newVarDB(_DAILY_BET_COUNT, BigInteger.class);
+	private VarDB<BigInteger> _yesterdays_bet_count = Context.newVarDB(_YESTERDAYS_BET_COUNT, BigInteger.class);
+	private VarDB<Address> _token_score = Context.newVarDB(_TOKEN_SCORE, Address.class);
+	private VarDB<Address> _rewards_score = Context.newVarDB(_REWARDS_SCORE, Address.class);
+	private VarDB<Address> _dividends_score = Context.newVarDB(_DIVIDENDS_SCORE, Address.class);
 
-	private DictDB<String, String> _vote = Context.newDictDB(this._VOTE, String.class);
-	private ArrayDB<Address> _voted = Context.newArrayDB(this._VOTED, Address.class);
-	private VarDB<BigInteger> _yes_votes = Context.newVarDB(this._YES_VOTES, BigInteger.class);
-	private VarDB<BigInteger> _no_votes = Context.newVarDB(this._NO_VOTES, BigInteger.class);
-	private VarDB<Boolean> _open_treasury = Context.newVarDB(this._OPEN_TREASURY, Boolean.class);
-	private VarDB<Address> _game_auth_score = Context.newVarDB(this._GAME_AUTH_SCORE, Address.class);
+	private DictDB<String, String> _vote = Context.newDictDB(_VOTE, String.class);
+	private ArrayDB<Address> _voted = Context.newArrayDB(_VOTED, Address.class);
+	private VarDB<BigInteger> _yes_votes = Context.newVarDB(_YES_VOTES, BigInteger.class);
+	private VarDB<BigInteger> _no_votes = Context.newVarDB(_NO_VOTES, BigInteger.class);
+	private VarDB<Boolean> _open_treasury = Context.newVarDB(_OPEN_TREASURY, Boolean.class);
+	private VarDB<Address> _game_auth_score = Context.newVarDB(_GAME_AUTH_SCORE, Address.class);
 
 	/*TODO: not used*/
-	private VarDB<Boolean> _new_div_live = Context.newVarDB(this._NEW_DIV_LIVE, Boolean.class);
-	private VarDB<BigInteger> _excess_to_distribute = Context.newVarDB(this._EXCESS_TO_DISTRIBUTE, BigInteger.class);
-	private VarDB<BigInteger> _treasury_balance = Context.newVarDB(this._TREASURY_BALANCE, BigInteger.class);
+	private VarDB<Boolean> _new_div_live = Context.newVarDB(_NEW_DIV_LIVE, Boolean.class);
+	private VarDB<BigInteger> _excess_to_distribute = Context.newVarDB(_EXCESS_TO_DISTRIBUTE, BigInteger.class);
+	private VarDB<BigInteger> _treasury_balance = Context.newVarDB(_TREASURY_BALANCE, BigInteger.class);
 
-	private VarDB<Boolean> _excess_smoothing_live = Context.newVarDB(this._EXCESS_SMOOTHING_LIVE, Boolean.class);
+	private VarDB<Boolean> _excess_smoothing_live = Context.newVarDB(_EXCESS_SMOOTHING_LIVE, Boolean.class);
 
-	private VarDB<Address> _daofund_score = Context.newVarDB(this._DAOFUND_SCORE, Address.class);
-	private VarDB<BigInteger> _yesterdays_excess = Context.newVarDB(this._YESTERDAYS_EXCESS, BigInteger.class);
-	private VarDB<BigInteger> _daofund_to_distirbute = Context.newVarDB(this._DAOFUND_TO_DISTRIBUTE, BigInteger.class);
+	private VarDB<Address> _daofund_score = Context.newVarDB(_DAOFUND_SCORE, Address.class);
+	private VarDB<BigInteger> _yesterdays_excess = Context.newVarDB(_YESTERDAYS_EXCESS, BigInteger.class);
+	private VarDB<BigInteger> _daofund_to_distirbute = Context.newVarDB(_DAOFUND_TO_DISTRIBUTE, BigInteger.class);
 
 	@EventLog(indexed=2)
 	public void FundTransfer(Address recipient, BigInteger amount, String note) {}
@@ -297,10 +290,10 @@ public class Daolette{
         Can increase treasury minimum with multiples of 10,000 ICX
         :return:
 		 */
-		if (Context.getValue().compareTo(BigInteger.TEN.pow(22)) <  0) {
+		if (Context.getValue().compareTo(pow(BigInteger.TEN,22)) <  0) {
 			Context.revert(TAG + " : set_treasury method doesnt accept ICX less than 10000 ICX");
 		}
-		if ( Context.getValue().mod(BigInteger.TEN.pow(22)).compareTo(BigInteger.ZERO)  != 0) {
+		if ( Context.getValue().mod(pow(BigInteger.TEN,22)).compareTo(BigInteger.ZERO)  != 0) {
 			Context.revert(TAG +" : Set treasury error, Please send amount in multiples of 10,000 ICX");
 		}
 
@@ -648,17 +641,17 @@ public class Daolette{
 	public void bet_on_numbers(String numbers, String user_seed) {
 
 		//TODO: validate well-formed string
-		List<Integer> list = Stream.of(numbers.split(",")).mapToInt(n -> Integer.valueOf(n)).boxed().collect(Collectors.toList());
-		Set<Integer> numSet = Set.of(list.toArray(new Integer[list.size()]));
+		String[] array = StringUtils.split(numbers, ',');
+		List<Integer> numList = List.of(mapToInt(array));
 
-		if (numSet.equals(SET_RED) || numSet.equals(SET_BLACK)) {
+		if (numList.equals(SET_RED) || numList.equals(SET_BLACK)) {
 			this._bet_type.set(BET_TYPES[2]);
-		}else if (numSet.equals(SET_ODD) || numSet.equals(SET_EVEN)){
+		}else if (numList.equals(SET_ODD) || numList.equals(SET_EVEN)){
 			this._bet_type.set(BET_TYPES[3]);
 		}else {
 			this._bet_type.set(BET_TYPES[1]);
 		}
-		this.__bet(numSet, user_seed);
+		this.__bet(numList, user_seed);
 	}
 
 	/*
@@ -673,7 +666,7 @@ public class Daolette{
 	@Payable
 	public void bet_on_color(boolean color, String user_seed) {
 		this._bet_type.set(BET_TYPES[2]);
-		Set<Integer> numbers;
+		List<Integer> numbers;
 		if (color) {
 			numbers = WHEEL_RED;
 		}else {
@@ -694,7 +687,7 @@ public class Daolette{
 	@Payable
 	public void bet_on_even_odd(boolean even_odd, String user_seed) {
 		this._bet_type.set(BET_TYPES[3]);
-		Set<Integer> numbers;
+		List<Integer> numbers;
 		if (even_odd) {
 			numbers = WHEEL_ODD;
 		}else {
@@ -724,7 +717,7 @@ public class Daolette{
 	@External
 	public void vote(String option) {
 
-		List<String> op = Arrays.asList("yes", "no");
+		List<String> op = List.of("yes", "no");
 
 		if (!op.contains(option)) {
 			Context.revert("Option must be one of either \"yes\" or \"no\".");
@@ -828,7 +821,7 @@ public class Daolette{
 		Context.println("Entered get_random. "+ TAG);
 		double spin;
 		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + userSeed;
-		spin = ( ByteBuffer.wrap(Context.hash("sha3-256", seed.getBytes())).order(ByteOrder.BIG_ENDIAN).getInt() % 100000) / 100000.0;
+		spin = fromByteArray( Context.hash("sha3-256", seed.getBytes())) % 100000 / 100000.0;
 		Context.println("Result of the spin was "+ spin + " "+ TAG);
 		return spin;
 	}
@@ -952,13 +945,14 @@ public class Daolette{
     :type user_seed: str
     :return:
 	 */
-	public void __bet(Set<Integer> numbers, String user_seed) {
+	public void __bet(List<Integer> numbers, String user_seed) {
 		this.BetSource(Context.getOrigin(), BigInteger.valueOf(Context.getBlockTimestamp()));
 		if (!this._game_on.get()) {
 			Context.println("Game not active yet. "+ TAG);
 			Context.revert("Game not active yet.");
 		}
-		String numberStr = numbers.stream().map(i-> i.toString()).collect(Collectors.joining(","));
+		String numberStr = listToListString(numbers);
+
 		BigInteger amount = Context.getValue();
 		Context.println("Betting "+amount+" loop on "+numberStr+". " +TAG);
 		this.BetPlaced(amount, numberStr);
@@ -972,10 +966,11 @@ public class Daolette{
 			Context.revert("Invalid bet. Too many numbers submitted. Returning funds.");
 		}
 
-		Set<Integer> numset = new HashSet<>(WHEEL_ORDER);
-		numset.remove(0);
+		List<Integer> numList = List.of((Integer[])WHEEL_ORDER.toArray());
+		numList = ArrayUtils.removeElementIndex(numList,0);
+
 		for (Integer num :numbers) {
-			if  ( !numset.contains(num) ) {
+			if  ( !numList.contains(num) ) {
 				Context.println("Invalid number submitted. "+ TAG);
 				Context.revert("Please check your bet. Numbers must be between 0 and 20, submitted as a comma separated string. Returning funds.");
 			}
@@ -1010,9 +1005,9 @@ public class Daolette{
 		}
 
 		double spin = this.get_random(user_seed);
-		Integer winningNumber = WHEEL_ORDER.stream().filter(i-> i == (int)(spin * 21) ).findFirst().orElse(0);
+		Integer winningNumber = WHEEL_ORDER.get((int)(spin * 21));
 		Context.println("winningNumber was "+winningNumber+". "+ TAG);
-		int win = numbers.stream().filter(i-> i.equals(winningNumber)).findFirst().orElse(0);
+		int win = numbers.contains(winningNumber)? 1: 0;
 		Context.println("win value was "+win +". "+ TAG);
 		payout = payout.multiply(BigInteger.valueOf(win));
 		this.BetResult(String.valueOf(spin), String.valueOf(winningNumber), payout);
@@ -1106,4 +1101,42 @@ public class Daolette{
 		hexDigits[1] = Character.forDigit((num & 0xF), 16);
 		return new String(hexDigits);
 	}
+
+	public Integer[] mapToInt(String[] array) {
+		Integer[] intArr = new Integer[array.length];
+
+		for(int i = 0; i < array.length; i++) {
+			intArr[i] = Integer.valueOf(array[i]);
+		}
+		return intArr;
+	}
+
+	int fromByteArray(byte[] bytes) {
+	     return ((bytes[0] & 0xFF) << 24) | 
+	            ((bytes[1] & 0xFF) << 16) | 
+	            ((bytes[2] & 0xFF) << 8 ) | 
+	            ((bytes[3] & 0xFF) << 0 );
+	}
+
+	public String listToListString(List<Integer> list) {
+		StringBuilder sb = new StringBuilder();
+		for(Integer i: list) {
+			sb.append(i.toString());
+			sb.append(",");
+		}
+		char c = sb.charAt(sb.length()-1);
+		if(c == ',') {
+			sb.deleteCharAt(sb.length()-1);
+		}
+		return sb.toString();
+
+	}
+
+    private static BigInteger pow(BigInteger base, int exponent) {
+        BigInteger result = BigInteger.ONE;
+        for (int i = 0; i < exponent; i++) {
+            result = result.multiply(base);
+        }
+        return result;
+    }
 }
