@@ -165,7 +165,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public boolean rewards_dist_complete() {
-		return this._dist_complete.get();
+		return this._dist_complete.getOrDefault(false);
 	}
 
 	/*
@@ -175,7 +175,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public BigInteger get_todays_total_wagers() {
-		return this._daily_totals[this._day_index.get().intValue()].get();
+		return this._daily_totals[this._day_index.get().intValue()].getOrDefault(ZERO);
 	}
 
 	/*
@@ -187,7 +187,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public BigInteger get_daily_wagers(String _player) {
-		return this._wagers.at(this._day_index.get()).get(_player);
+		return this._wagers.at(this._day_index.get()).getOrDefault(_player, ZERO);
 	}
 
 
@@ -358,7 +358,6 @@ public class RewardDistribution {
     :return:
 	 */
 	public void _set_batch_size() {
-		//game_score = self.create_interface_score(self._game_score.get(), GameInterface)
 		BigInteger size = Context.call(BigInteger.class, this._game_score.get(), "get_batch_size", 
 				BigInteger.valueOf(
 						this._addresses[this._day_index.get().intValue()]
