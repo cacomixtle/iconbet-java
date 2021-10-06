@@ -429,6 +429,7 @@ public class TapToken implements IRC2{
 
 		BigInteger balanceTo = this.balances.getOrDefault(to, BigInteger.ZERO);
 		this.balances.set(to, balanceTo.add(value));
+		Context.println("new balance of 'to' ( "+ to +"): " + this.balances.get(to));
 
 		sbFrom.set(Status.AVAILABLE, sbFrom.get(Status.AVAILABLE).subtract(value) );
 		sbTo.set(Status.AVAILABLE, sbTo.get(Status.AVAILABLE).add(value));
@@ -436,6 +437,7 @@ public class TapToken implements IRC2{
 		if ( !containsInArrayDb(to, this.addresses ) ){
 			this.addresses.add(to);
 		}
+
 		if (to.isContract()){
 			// If the recipient is SCORE,
 			//   then calls `tokenFallback` to hand over control.
@@ -443,6 +445,7 @@ public class TapToken implements IRC2{
 		}
 
 		// Emits an event log `Transfer`
+		Context.println("Emit an event log Transfer from "+ from + " to " + to);
 		this.Transfer(from, to, value, data);
 		if ( !this.switchDivsToStakedTapEnabled.getOrDefault(false) ){
 			ArrayDB<Address> addressChanges = this.changes.get(this.addressUpdateDb.getOrDefault(0));

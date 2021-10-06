@@ -7,4 +7,5 @@ include (
     'tap-token',
     'game-authorization-score',
     'daofund-score',
-    'daodice-score')
+    'daodice-score',
+	'testinteg')

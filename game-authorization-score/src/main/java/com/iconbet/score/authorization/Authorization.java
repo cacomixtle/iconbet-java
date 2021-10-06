@@ -1,5 +1,7 @@
 package com.iconbet.score.authorization;
 
+import static java.math.BigInteger.ZERO;
+
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +23,8 @@ import score.annotation.External;
 import score.annotation.Payable;
 
 public class Authorization{
-	
+
+	protected static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
 
 	//question ?? how to implement this?
 		/***
@@ -181,57 +184,55 @@ public class Authorization{
 		 return List.of(tmp);
 	}
 
+	/**
+    Sets the address of roulette/game score
+    :param _scoreAddress: Address of roulette
+    :type _scoreAddress: :class:`iconservice.base.address.Address`
+    :return:
+	 * **/
 	@External
 	public void set_roulette_score(Address _scoreAddress) {
-		/**
-        Sets the address of roulette/game score
-        :param _scoreAddress: Address of roulette
-        :type _scoreAddress: :class:`iconservice.base.address.Address`
-        :return:		 
-		 * **/
+		//TODO: should we call address isContract()?? contract means score?
 		if (!Context.getCaller().equals(Context.getOwner())) {
 			Context.revert("This function can only be called from the GAS owner.");
 		}
 		this.roulette_score.set(_scoreAddress);
 	}
-	
+
+	/**
+	Returns the roulette score address
+    :return: Address of the roulette score
+    :rtype: :class:`iconservice.base.address.Address
+	 ***/
 	@External(readonly = true)
 	public Address get_roulette_score() {
-		/**
-		Returns the roulette score address
-        :return: Address of the roulette score
-        :rtype: :class:`iconservice.base.address.Address
-        
-		 ***/
-		return this.roulette_score.get();
+		return this.roulette_score.getOrDefault(ZERO_ADDRESS);
 	}
-	
+
+	/**
+	 Sets the sum of game developers as well as platform share
+   :param _share: Sum of game_devs as well as platform share
+   :type _share: int
+   :return:
+	 * */
 	@External
 	public void set_game_developers_share(BigInteger _share) {
-		/**
-		 Sets the sum of game developers as well as platform share
-        :param _share: Sum of game_devs as well as platform share
-        :type _share: int
-        :return:
-		 * */
-		
 		if (!Context.getCaller().equals(Context.getOwner())) {
 			Context.revert("This function can only be called by GAS owner");
 		}
 		this.game_developers_share.set(_share);
 	}
-	
+
+	/**
+	 Returns the sum of game developers and platform share.
+   :return: Sum of game developers share as well as platform share
+   :rtype: int
+	 ***/
 	@External(readonly = true)
 	public BigInteger get_game_developers_share() {
-		/**
-		 Returns the sum of game developers and platform share.
-        :return: Sum of game developers share as well as platform share
-        :rtype: int
-		 ***/
-		
-		return this.game_developers_share.get(); 
+		return this.game_developers_share.getOrDefault(ZERO);
 	}
-	
+
 	
 	@External
 	public void set_super_admin(Address _super_admin) {
@@ -762,16 +763,15 @@ public class Authorization{
 		return status_data.get(scoreAddress);
 		
 	}
-	
 
+	/***
+    Returns the excess share of game developers and founders
+    :return: Game developers share
+    :rtype: int
+    ***/
 	@External(readonly = true)	
 	public BigInteger get_excess() {
-		/***
-        Returns the excess share of game developers and founders
-        :return: Game developers share
-        :rtype: int
-        ***/
-		
+
 		BigInteger positive_excess = BigInteger.ZERO;
 		BigInteger game_developers_amount = BigInteger.ZERO;
 
@@ -790,16 +790,15 @@ public class Authorization{
 		return game_developers_amount;
 	}
 	
-	
+	/***
+    Roulette score calls this function if the day has been advanced. This
+    function takes the snapshot of the excess made by the game till the
+    advancement of day.
+    :return: Sum of game developers amount
+    :rtype: int
+    ***/
 	@External
 	public BigInteger record_excess() {
-		/***
-        Roulette score calls this function if the day has been advanced. This
-        function takes the snapshot of the excess made by the game till the
-        advancement of day.
-        :return: Sum of game developers amount
-        :rtype: int
-        ***/
 		Address sender = Context.getCaller();
 		
 		if (!sender.equals( this.roulette_score.get()) ) {
@@ -829,16 +828,14 @@ public class Authorization{
 	}
         	
 	
-	
-	// questions dict =  DictDB<Address, BigInteger[]>  ???
+	/***
+    Returns the todays excess of the game. The excess is reset to 0 if it
+    remains positive at the end of the day.
+    :return: Returns the excess of games at current time
+    ***/
 	@SuppressWarnings("unchecked")
 	@External(readonly = true)
 	public Map<String, String> get_todays_games_excess() {
-		/***
-        Returns the todays excess of the game. The excess is reset to 0 if it
-        remains positive at the end of the day.
-        :return: Returns the excess of games at current time
-        ***/
 		Map.Entry<String, String>[] games_excess = new Map.Entry[this.get_approved_games().size()];
 
 		for (int i= 0; i<this.get_approved_games().size(); i++ ) {

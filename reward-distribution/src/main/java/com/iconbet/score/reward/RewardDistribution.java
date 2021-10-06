@@ -215,7 +215,9 @@ public class RewardDistribution {
 	@External(readonly=true)
 	public BigInteger get_todays_tap_distribution() {
 
+		Context.println("calling tap-token["+ this._token_score.get() +"].balanceOf for reward address: "+ Context.getAddress().toString());
 		BigInteger remainingTokens = Context.call(BigInteger.class, this._token_score.get(),  "balanceOf", Context.getAddress());
+		Context.println("remain tokens: "+ remainingTokens + " of "+ Context.getAddress());
 		if (remainingTokens.equals(BigInteger.valueOf(264000000).multiply(TAP))) {
 			return TWO.multiply(DAILY_TOKEN_DISTRIBUTION).add(remainingTokens).mod(DAILY_TOKEN_DISTRIBUTION);
 		}else if (remainingTokens.compareTo( BigInteger.valueOf(251000000).multiply(TAP) ) >= 0) {
@@ -457,8 +459,9 @@ public class RewardDistribution {
 	@External
 	public void tokenFallback(Address _from, BigInteger _value,byte[] _data) {
 
+		Context.println("calling balance of token score "+ this._token_score.get() + " for addr "  +Context.getAddress());
 		BigInteger remainingTokens = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", Context.getAddress());
-
+		Context.println("remaining tokens of "+ Context.getAddress() +": "+ remainingTokens);
 		if (remainingTokens.equals( BigInteger.valueOf(264000000).multiply(TAP)) ){
 			Context.revert("Not able to receive further TAP when the balance is 264M tap tokens");
 		}
