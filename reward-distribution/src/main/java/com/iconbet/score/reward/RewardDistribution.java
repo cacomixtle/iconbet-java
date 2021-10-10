@@ -491,10 +491,19 @@ public class RewardDistribution {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static <K,V> String mapToJsonString(Map<K, V > map) {
+		if( map.isEmpty()) {
+			return null;
+		}
+
 		StringBuilder sb = new StringBuilder("{");
 		for (Map.Entry<K, V> entry : map.entrySet()) {
 			if(entry.getValue() instanceof Map) {
-				sb.append("\""+entry.getKey()+"\":\""+ mapToJsonString((Map)entry.getValue())+"\",");
+				String subEntry = mapToJsonString((Map)entry.getValue());
+				if(subEntry != null) {
+					sb.append("\""+entry.getKey()+"\":\""+ subEntry+"\",");	
+				}else {
+					sb.append("\""+entry.getKey()+"\":null ,");
+				}
 			}else {
 				sb.append("\""+entry.getKey()+"\":\""+entry.getValue()+"\",");
 			}

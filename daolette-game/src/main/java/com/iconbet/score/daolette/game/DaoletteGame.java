@@ -288,7 +288,7 @@ public class DaoletteGame {
 
 		//TODO: investigate what does this chain call means
 		//treasury_score.icx(self.msg.value).send_wager(amount)
-		Context.call(this._treasury_score.get(),  "send_wager", amount);
+		Context.call(Context.getValue(), this._treasury_score.get(),  "send_wager", amount);
 
 		if (numbers.isEmpty()) {
 			Context.println("Bet placed without numbers. "+ TAG);
