@@ -346,10 +346,9 @@ public class RewardDistribution {
 			this._addresses[day_index.intValue()].add(player);
 			this._wagers.at(day_index).set(player, wager);
 		}
-		//dividends_score = self.create_interface_score(self._dividends_score.get(), DividendsInterface)
 
 		Boolean distribute = Context.call(Boolean.class, this._dividends_score.get(), "distribute");
-		if (distribute) {
+		if (distribute != null && distribute) {
 			this._distribute();
 		}
 		Context.println("Done in accumulate_wagers.  self._day_index = " +this._day_index.get() + ". "+ TAG);

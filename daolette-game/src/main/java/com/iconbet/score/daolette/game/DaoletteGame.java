@@ -88,6 +88,7 @@ public class DaoletteGame {
 	@External
 	public void set_treasury_score(Address _score) {
 		if ( Context.getCaller().equals(Context.getOwner())) {
+			Context.println("setting treasury score address");
 			this._treasury_score.set(_score);
 		}
 	}
@@ -113,6 +114,7 @@ public class DaoletteGame {
 			Context.revert("Only the owner can call the game_on method");
 		}
 		if (!this._game_on.get() && this._treasury_score.get() != null){
+			Context.println("setting tresury game as on");
 			this._game_on.set(true);
 		}
 	}
@@ -274,8 +276,6 @@ public class DaoletteGame {
 
 		this.BetSource(Context.getOrigin(), BigInteger.valueOf(Context.getTransactionTimestamp()));
 
-		BigInteger treasuryMin = Context.call(BigInteger.class, this._treasury_score.get(),  "get_treasury_min");
-
 		String numberStr = listToListString(numbers);
 
 		if (!this._game_on.get()) {
@@ -307,6 +307,9 @@ public class DaoletteGame {
 				Context.revert("Please check your bet. Numbers must be between 0 and 20, submitted as a comma separated string. Returning funds.");
 			}
 		}
+
+		BigInteger treasuryMin = Context.call(BigInteger.class, this._treasury_score.get(),  "get_treasury_min");
+
 		BigInteger betLimit;
 		if (bet_type.equals(BET_TYPES[2]) || bet_type.equals(BET_TYPES[3])){
 			betLimit = treasuryMin.divide(BigInteger.valueOf(BET_LIMIT_RATIOS[0]));
