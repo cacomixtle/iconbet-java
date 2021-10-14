@@ -6,4 +6,5 @@ include (
 	  'daolette-game',
     'tap-token',
     'game-authorization-score',
-    'daofund-score')
+    'daofund-score',
+    'dividend-distribution-score')
