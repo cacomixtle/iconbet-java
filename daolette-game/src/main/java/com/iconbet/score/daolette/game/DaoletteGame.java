@@ -272,6 +272,7 @@ public class DaoletteGame {
     :type user_seed: str
     :return:
 	 */
+	@SuppressWarnings("rawtypes")
 	public void __bet(List<Integer> numbers, String user_seed, String bet_type) {
 
 		this.BetSource(Context.getOrigin(), BigInteger.valueOf(Context.getTransactionTimestamp()));
@@ -286,8 +287,6 @@ public class DaoletteGame {
 		Context.println("Betting "+ amount +" loop on " + numberStr +". "+ TAG);
 		this.BetPlaced(amount, numberStr);
 
-		//TODO: investigate what does this chain call means
-		//treasury_score.icx(self.msg.value).send_wager(amount)
 		Context.call(Context.getValue(), this._treasury_score.get(),  "send_wager", amount);
 
 		if (numbers.isEmpty()) {
@@ -298,12 +297,12 @@ public class DaoletteGame {
 			Context.revert("Invalid bet. Too many numbers submitted. Returning funds.");
 		}
 
-		List<Integer> numList = List.of((Integer[])WHEEL_ORDER.toArray());
-		numList = ArrayUtils.removeElementIndex(numList,0);
+		List numList = List.of(WHEEL_ORDER.toArray());
+		numList = ArrayUtils.removeElement(numList,0);
 
 		for (Integer num :numbers) {
 			if  ( !numList.contains(num) ) {
-				Context.println("Invalid number submitted. "+ TAG);
+				Context.println("Invalid number "+ num +"submitted. "+ TAG);
 				Context.revert("Please check your bet. Numbers must be between 0 and 20, submitted as a comma separated string. Returning funds.");
 			}
 		}
@@ -329,13 +328,13 @@ public class DaoletteGame {
 
 		BigInteger payout;
 		if (bet_type.equals(BET_TYPES[1])){
-			payout = BigInteger.valueOf( MULTIPLIERS.get(BET_TYPES[5]).longValue() * 1000 ).multiply(amount).divide(BigInteger.valueOf(100*numbers.size()));
+			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]) * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
 		}else {
 			payout = BigInteger.valueOf( MULTIPLIERS.get(bet_type).longValue()).multiply(amount);
 		}
 
 		if ( Context.getBalance(this._treasury_score.get()).compareTo(payout) < 0) {
-			Context.println("Not enough in treasury to make the play. "+ TAG);
+			Context.println("Not enough in treasury to make the play. " + payout+ TAG);
 			Context.revert("Not enough in treasury to make the play.");
 		}
 
@@ -343,7 +342,7 @@ public class DaoletteGame {
 		Integer winningNumber = WHEEL_ORDER.get((int)(spin * 21));
 		Context.println("winningNumber was "+winningNumber+". "+ TAG);
 		int win = numbers.contains(winningNumber)? 1: 0;
-		Context.println("win value was "+win +". "+ TAG);
+		Context.println("winner number in selected numbers? "+win +". "+ TAG);
 		payout = payout.multiply(BigInteger.valueOf(win));
 		this.BetResult(String.valueOf(spin), String.valueOf(winningNumber), payout);
 
@@ -414,9 +413,14 @@ public class DaoletteGame {
 	}
 
 	int fromByteArray(byte[] bytes) {
-	     return ((bytes[0] & 0xFF) << 24) | 
+	     int order = ((bytes[0] & 0xFF) << 24) | 
 	            ((bytes[1] & 0xFF) << 16) | 
 	            ((bytes[2] & 0xFF) << 8 ) | 
 	            ((bytes[3] & 0xFF) << 0 );
+	     //TODO: this cand be negative, why???
+	     if(order < 0) {
+	    	 return order * -1;
+	     }
+	     return order;
 	}
 }

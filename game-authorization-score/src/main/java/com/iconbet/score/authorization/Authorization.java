@@ -526,37 +526,37 @@ public class Authorization{
 		}
 		Context.println("metadata json is valid");
 	}
-	
-	
+
+	/***
+    Accumulates daily wagers of the game. Updates the excess of the game.
+    Only roulette score can call this function.
+    :param game: Address of the game
+    :type game: :class:`iconservice.base.address.Address`
+    :param wager: Wager amount of the game
+    :type wager: int
+    :return:
+	***/
 	@External
 	public void accumulate_daily_wagers(Address game, BigInteger wager ) {
-		/***
-        Accumulates daily wagers of the game. Updates the excess of the game.
-        Only roulette score can call this function.
-        :param game: Address of the game
-        :type game: :class:`iconservice.base.address.Address`
-        :param wager: Wager amount of the game
-        :type wager: int
-        :return:
-		***/
 		Address sender = Context.getCaller();
-		
+
 		if (!sender.equals(this.roulette_score.get()) ) {
 			Context.revert("Only roulette score can invoke this method.");			
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());
 		BigInteger day = now.divide(U_SECONDS_DAY);
 
-		BigInteger wagerValue = this.wagers.at(day).get(game);
-		this.wagers.at(day).set(game,  wager.add(wagerValue));
+		BigInteger wagerValue = this.wagers.at(day).getOrDefault(game, ZERO);
+		this.wagers.at(day).set(game, wager.add(wagerValue));
 
+		Context.println("acumulated wager at "+day+" for game "+ game + " is " + this.wagers.at(day).get(game));
 		BigInteger newTime = this.new_div_changing_time.get();
 
 		if ( newTime!= null && now.compareTo(newTime)>=1 ) {
-			BigInteger excess = this.todays_games_excess.get(game);
+			BigInteger excess = this.todays_games_excess.getOrDefault(game, ZERO);
 			this.todays_games_excess.set(game, excess.add(wager));
 		}
-				
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -600,9 +600,8 @@ public class Authorization{
 			Context.revert("Only roulette score can invoke this method.");
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
-		BigInteger day = BigInteger.ZERO;
-		day = day.add(now.divide(U_SECONDS_DAY));
-		
+		BigInteger day = now.divide(U_SECONDS_DAY);
+
 		if (this.apply_watch_dog_method.get()!= null && 
 				this.apply_watch_dog_method.get() ) {
 			try {
@@ -634,19 +633,19 @@ public class Authorization{
 			
 		}
 
-		BigInteger newPayOut = this.payouts.at(day).get(game);
+		BigInteger newPayOut = this.payouts.at(day).getOrDefault(game, ZERO);
 		this.payouts.at(day).set(game, payout.add(newPayOut));
 
 		if ( this.new_div_changing_time.get() != null && 
-				this.new_div_changing_time.get().compareTo(BigInteger.ZERO) != 0 &&
+				this.new_div_changing_time.get().compareTo(ZERO) != 0 &&
 				 day.compareTo(this.new_div_changing_time.get()) >= 1) {
-			BigInteger accumulate = this.todays_games_excess.get(game);
+			BigInteger accumulate = this.todays_games_excess.getOrDefault(game, ZERO);
 			this.todays_games_excess.set(game, accumulate.subtract(payout));
 		}
 		return false;
 	}
-	
-	
+
+
 	//Question   def get_daily_payouts(self, day: int = 0 ?? initilize if null?
 	@SuppressWarnings("unchecked")
 	@External(readonly = true)

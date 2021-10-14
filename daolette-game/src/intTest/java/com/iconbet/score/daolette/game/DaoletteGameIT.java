@@ -1,9 +1,12 @@
 package com.iconbet.score.daolette.game;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Optional;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,7 +17,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import foundation.icon.icx.IconService;
 import foundation.icon.icx.KeyWallet;
+import foundation.icon.icx.SignedTransaction;
+import foundation.icon.icx.Transaction;
+import foundation.icon.icx.TransactionBuilder;
 import foundation.icon.icx.data.TransactionResult;
+import foundation.icon.icx.data.TransactionResult.EventLog;
 import foundation.icon.icx.transport.http.HttpProvider;
 import foundation.icon.icx.transport.jsonrpc.RpcItem;
 import foundation.icon.icx.transport.jsonrpc.RpcObject;
@@ -25,7 +32,7 @@ import foundation.icon.test.TestBase;
 import foundation.icon.test.TransactionHandler;
 import foundation.icon.test.score.Score;
 
-class DaoletteIT extends TestBase{
+class DaoletteGameIT extends TestBase{
 	private static final BigInteger MULTIPLIER = new BigInteger("1000000000000000000");
 
 	private static Score daoletteGame;
@@ -88,6 +95,7 @@ class DaoletteIT extends TestBase{
 	void testBetOnEvenOdd() throws IOException, ResultTimeoutException {
 		assertNotNull(daoletteGame);
 
+		//------------- starting games
 		daoletteGame.invokeAndWaitResult(chain.godWallet, "set_treasury_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(daolette.getAddress()))
@@ -106,6 +114,7 @@ class DaoletteIT extends TestBase{
 				.put("_super_admin", new RpcValue(chain.godWallet.getAddress()))
 				.build());
 
+		//---------------  activating games
 		//activate daolette game
 		GameMetadata gmd = new GameMetadata();
 		gmd.setMaxPayout("5900000000000000000");
@@ -132,20 +141,10 @@ class DaoletteIT extends TestBase{
 				.put("_status", new RpcValue("gameApproved"))
 				.put("_scoreAddress", new RpcValue(daoletteGame.getAddress()))
 				.build());
-/*
-        Transaction transaction = TransactionBuilder.newBuilder()
-                .nid(BigInteger.valueOf(chain.networkId))
-                .from(chain.godWallet.getAddress())
-                .to(daoletteGame.getAddress())
-                .value(new BigInteger("200000000000000000"))
-                .build();
-
-        BigInteger steps = iconService.estimateStep(transaction).execute();
-*/
 
 		//authorize tresury (daolette)
 		daolette.invokeAndWaitResult(chain.godWallet, "game_on", new RpcObject.Builder().build());
-		
+
 		gmd = new GameMetadata();
 		gmd.setMaxPayout("5900000000000000000");
 		gmd.setName("test-daolette");
@@ -172,20 +171,32 @@ class DaoletteIT extends TestBase{
 				.put("_scoreAddress", new RpcValue(daolette.getAddress()))
 				.build());
 
-		RpcItem item = authorization.call("get_game_status", 
-				new RpcObject.Builder()
-				.put("_scoreAddress", new RpcValue(daoletteGame.getAddress()))
-				.build());
-		System.out.println("daolette game "+ daoletteGame.getAddress() + " status: " +item);
 
-		item = authorization.call("get_game_status", 
+		//--------------  configuring games
+		daolette.invokeAndWaitResult(chain.godWallet, "set_rewards_score", 
 				new RpcObject.Builder()
-				.put("_scoreAddress", new RpcValue(daoletteGame.getAddress()))
+				.put("_score", new RpcValue(rewardDistribution.getAddress()))
 				.build());
-		System.out.println("daolette game "+ daolette.getAddress() + " status: " +item);
+
+		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_game_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(daolette.getAddress()))
+				.build());
+
+		authorization.invokeAndWaitResult(chain.godWallet, "set_roulette_score", 
+				new RpcObject.Builder()
+				.put("_scoreAddress", new RpcValue(daolette.getAddress()))
+				.build());
+
+		//send some ICX to treasury, so it have some funds for the first game ever.
+		daolette.invokeAndWaitResult(chain.godWallet, "add_to_excess", 
+				new RpcObject.Builder()
+				.build(),
+				BigInteger.valueOf(100).multiply(MULTIPLIER)
+				,null);
 
 		//bet on daolette game
-		daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_even_odd", 
+		TransactionResult txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_even_odd", 
 				new RpcObject.Builder()
 				.put("even_odd", new RpcValue(false))
 				.put("user_seed", new RpcValue("3,17,6"))
@@ -193,16 +204,11 @@ class DaoletteIT extends TestBase{
 				new BigInteger("200000000000000000"),
 				new BigInteger("100000000"));
 
-		/*
-		iconService.call(new Call.Builder()
-				.method("bet_on_even_odd")
-				.params(
-						new RpcObject.Builder()
-						.put("even_odd", new RpcValue(false))
-						.put("user_seed", new RpcValue("1,2,5"))
-						.build())
-				.to(daoletteGame.getAddress())
-				.build()).execute();*/
+		assertEquals(BigInteger.ONE, txn.getStatus());
+		Optional<EventLog> daoletteGameEvent = txn.getEventLogs().stream().filter(e-> e.getScoreAddress().equals(daoletteGame.getAddress().toString())).findFirst();
+		assertTrue(daoletteGameEvent.isPresent());
+		System.out.println(txn);
+
 	}
 
 }
