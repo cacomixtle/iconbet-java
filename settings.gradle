@@ -7,6 +7,6 @@ include (
     'tap-token',
     'game-authorization-score',
     'daofund-score',
-    'dividend-distribution-score')
+    'dividend-distribution-score',
     'daodice-score',
 	'testinteg')
