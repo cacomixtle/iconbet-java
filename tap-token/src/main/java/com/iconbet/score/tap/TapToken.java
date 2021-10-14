@@ -1,5 +1,6 @@
 package com.iconbet.score.tap;
 
+import static java.math.BigInteger.ZERO;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +9,7 @@ import com.iconloop.score.token.irc2.IRC2;
 
 import score.Address;
 import score.ArrayDB;
+import score.BranchDB;
 import score.Context;
 import score.DictDB;
 import score.VarDB;
@@ -82,8 +84,8 @@ public class TapToken implements IRC2{
 
 	//TODO : Example 2) Two-depth dict (test_dict2[‘key1’][‘key2’]): 
 	//lets dig into how it is used self._STAKED_BALANCES, db, value_type=int, depth=2
-	//looks like it is a List of Integer instead of Integer only
-	private final DictDB<Address, BigInteger[]> stakedBalances = Context.newDictDB(STAKED_BALANCES, BigInteger[].class);
+	//verify if BranchDB can support multiples Dicdb keys like thousands, else we will need to go back to old impl or even a tricky data structure impl
+	private final BranchDB<Address, DictDB<Integer,BigInteger>> stakedBalances = Context.newBranchDB(STAKED_BALANCES, BigInteger.class);
 	private final VarDB<BigInteger> minimumStake = Context.newVarDB(MINIMUM_STAKE, BigInteger.class);
 	private final VarDB<BigInteger> unstakingPeriod = Context.newVarDB(UNSTAKING_PERIOD, BigInteger.class);
 	private final VarDB<BigInteger> totalStakedBalance = Context.newVarDB(TOTAL_STAKED_BALANCE, BigInteger.class);
@@ -120,8 +122,6 @@ public class TapToken implements IRC2{
 		}
 
 		//TODO: make sure iconbet do not want decimals a biginteger like 2^2147483647 decimals
-		//in terms of value, having it as datatype is ok
-		//(having decimals as biginteger does not make sense)
 		BigInteger totalSupply = _initialSupply.multiply( pow( BigInteger.TEN , _decimals.intValue()) );
 		Context.println(TAG+" : total_supply "+ totalSupply );
 
@@ -167,7 +167,7 @@ public class TapToken implements IRC2{
 	@Override
 	@External(readonly=true)
 	public String name() {
-		return "TapToken";
+		return TAG;
 	}
 
 	@Override
@@ -207,12 +207,12 @@ public class TapToken implements IRC2{
 	}
 
 	@External(readonly=true)
-	public BigInteger staked_balance_of(Address _owner) {
-		return getStakedBalancesReadOnly(_owner)[Status.STAKED];
+	public BigInteger staked_balanceOf(Address _owner) {
+		return this.stakedBalances.at(_owner).getOrDefault(Status.STAKED, BigInteger.ZERO);
 	}
 
 	@External(readonly=true)
-	public BigInteger unstaked_balance_of(Address _owner) {
+	public BigInteger unstaked_balanceOf(Address _owner) {
 		Map<String, BigInteger> detailBalance = details_balanceOf(_owner);
 		if(detailBalance.containsKey("Unstaking balance")) {
 			return detailBalance.get("Unstaking balance");
@@ -247,61 +247,56 @@ public class TapToken implements IRC2{
 
 		//Context.getBlockTimestamp() -- > self.now()
 		BigInteger currUnstaked = BigInteger.ZERO;
-		BigInteger[] sb = getStakedBalancesReadOnly(_owner);
-		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
-			currUnstaked = sb[Status.UNSTAKING];
+		DictDB<Integer, BigInteger> sb = this.stakedBalances.at(_owner);
+		if (sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO).compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
+			currUnstaked = sb.getOrDefault(Status.UNSTAKING, ZERO);
 		}
 
 		BigInteger availableBalance;
-		if (this.firstTimeReadOnly(_owner)) {
+		if (this.firstTime(_owner)) {
 			availableBalance = this.balanceOf(_owner);
-		}else {
-			availableBalance = sb[Status.AVAILABLE];
+		}else{
+			availableBalance = sb.getOrDefault(Status.AVAILABLE, ZERO);
 		}
 
-		//possible negative value scenario?
-		BigInteger unstakingAmount = sb[Status.UNSTAKING].subtract(currUnstaked);
+		//TODO: possible negative value scenario in py?
+		BigInteger unstakingAmount = sb.getOrDefault(Status.UNSTAKING, ZERO);
+		if( unstakingAmount.compareTo(ZERO) > 0) {
+			unstakingAmount = unstakingAmount.subtract(currUnstaked);
+		}
 
 		BigInteger unstakingTime = BigInteger.ZERO;
-		if (unstakingAmount.compareTo(BigInteger.ZERO) != 0) {
-			unstakingTime = sb[Status.UNSTAKING_PERIOD];
+		if ( !unstakingAmount.equals(ZERO)) {
+			unstakingTime = sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO);
 		}
 
 		return Map.of(
 				"Total balance", this.balances.getOrDefault(_owner, BigInteger.ZERO),
-				"Available balance", availableBalance.add( currUnstaked),
-				"Staked balance", sb[Status.STAKED],
+				"Available balance", availableBalance.add(currUnstaked),
+				"Staked balance", sb.getOrDefault(Status.STAKED, ZERO),
 				"Unstaking balance", unstakingAmount,
 				"Unstaking time (in microseconds)", unstakingTime);
 
 	}
 
 	private boolean firstTime(Address from) {
-		BigInteger[] sb = getStakedBalances(from);
+		DictDB<Integer, BigInteger> sb = this.stakedBalances.at(from);
 		return
-				sb[Status.AVAILABLE].compareTo(BigInteger.ZERO) == 0
-				&& sb[Status.STAKED].compareTo(BigInteger.ZERO) == 0
-				&& sb[Status.UNSTAKING].compareTo(BigInteger.ZERO) == 0
-				&& this.balances.getOrDefault(from, BigInteger.ZERO).compareTo(BigInteger.ZERO) != 0;
-	}
-
-	private boolean firstTimeReadOnly(Address from) {
-		BigInteger[] sb = getStakedBalancesReadOnly(from);
-		return
-				sb[Status.AVAILABLE].compareTo(BigInteger.ZERO) == 0
-				&& sb[Status.STAKED].compareTo(BigInteger.ZERO) == 0
-				&& sb[Status.UNSTAKING].compareTo(BigInteger.ZERO) == 0
+				ZERO.equals( sb.getOrDefault(Status.AVAILABLE, ZERO))
+				&& ZERO.equals( sb.getOrDefault(Status.STAKED, ZERO))
+				&& ZERO.equals(sb.getOrDefault(Status.UNSTAKING, ZERO))
 				&& this.balances.getOrDefault(from, BigInteger.ZERO).compareTo(BigInteger.ZERO) != 0;
 	}
 
 	private void checkFirstTime(Address from) {
 		//If first time copy the balance to available staked balances
 		if (this.firstTime(from)){
-			getStakedBalances(from)[Status.AVAILABLE] = this.balances.getOrDefault(from, BigInteger.ZERO);
+			this.stakedBalances.at(from).set(Status.AVAILABLE, this.balances.getOrDefault(from, BigInteger.ZERO));
 		}
 	}
 
 	private void stakingEnabledOnly() {
+		Context.println("staking enabled? : " + this.stakingEnabled.get());
 		if (! this.stakingEnabled.getOrDefault(false)) {
 			Context.revert("Staking must first be enabled.");
 		}
@@ -317,6 +312,7 @@ public class TapToken implements IRC2{
 	public void toggle_staking_enabled() {
 		this.ownerOnly();
 		this.stakingEnabled.set(! this.stakingEnabled.getOrDefault(false));
+		Context.println("enabled staking?: " + this.stakingEnabled.get());
 	}
 
 	@External
@@ -360,24 +356,24 @@ public class TapToken implements IRC2{
 			Context.revert("Locked address not permitted to stake.");
 		}
 
-		BigInteger[] sb = getStakedBalances(from);
-		BigInteger oldStake = sb[Status.STAKED].add( sb[Status.UNSTAKING]);
+		DictDB<Integer, BigInteger> sb = this.stakedBalances.at(from);
+		BigInteger oldStake = sb.getOrDefault(Status.STAKED, ZERO).add( sb.get(Status.UNSTAKING));
 		//big integer is immutable, not need this next line
 		BigInteger newStake = _value;
 
-		BigInteger stakeIncrement = _value.subtract( sb[Status.STAKED]);
+		BigInteger stakeIncrement = _value.subtract( sb.getOrDefault(Status.STAKED, ZERO));
 		BigInteger unstakeAmount = BigInteger.ZERO;
 		if (newStake.compareTo(oldStake) > 0 ) {
 			BigInteger offset = newStake.subtract(oldStake);
-			sb[Status.AVAILABLE] = sb[Status.AVAILABLE].subtract(offset);
+			sb.set(Status.AVAILABLE, sb.get(Status.AVAILABLE).subtract(offset));
 		}else {
 			unstakeAmount = oldStake.subtract(newStake);
 		}
 
-		sb[Status.STAKED] = _value;
-		sb[Status.UNSTAKING] = unstakeAmount;
-		sb[Status.UNSTAKING_PERIOD] = BigInteger.valueOf( Context.getBlockTimestamp())
-				.add( this.unstakingPeriod.getOrDefault(BigInteger.ZERO));
+		sb.set(Status.STAKED, _value);
+		sb.set(Status.UNSTAKING, unstakeAmount);
+		sb.set(Status.UNSTAKING_PERIOD, BigInteger.valueOf( Context.getBlockTimestamp())
+				.add( this.unstakingPeriod.getOrDefault(BigInteger.ZERO)));
 		this.totalStakedBalance.set(this.totalStakedBalance.getOrDefault(BigInteger.ZERO).add(stakeIncrement));
 
 		ArrayDB<Address> stakeAddressChanges = this.stakeChanges.get(this.stakeAddressUpdateDb.getOrDefault(0));
@@ -422,10 +418,10 @@ public class TapToken implements IRC2{
 		this.makeAvailable(to);
 		this.makeAvailable(from);
 
-		BigInteger[] sbFrom = getStakedBalances(from);
-		BigInteger[] sbTo = getStakedBalances(to);
+		DictDB<Integer, BigInteger> sbFrom = this.stakedBalances.at(from);
+		DictDB<Integer, BigInteger> sbTo = this.stakedBalances.at(to);
 
-		if (sbFrom[Status.AVAILABLE].compareTo(value) < 0 ) {
+		if (sbFrom.get(Status.AVAILABLE).compareTo(value) < 0 ) {
 			Context.revert("Out of available balance");
 		}
 
@@ -433,13 +429,15 @@ public class TapToken implements IRC2{
 
 		BigInteger balanceTo = this.balances.getOrDefault(to, BigInteger.ZERO);
 		this.balances.set(to, balanceTo.add(value));
+		Context.println("new balance of 'to' ( "+ to +"): " + this.balances.get(to));
 
-		sbFrom[Status.AVAILABLE] = (sbFrom[Status.AVAILABLE].subtract(value));
-		sbTo[Status.AVAILABLE] = (sbTo[Status.AVAILABLE].add(value));
+		sbFrom.set(Status.AVAILABLE, sbFrom.get(Status.AVAILABLE).subtract(value) );
+		sbTo.set(Status.AVAILABLE, sbTo.get(Status.AVAILABLE).add(value));
 
 		if ( !containsInArrayDb(to, this.addresses ) ){
 			this.addresses.add(to);
 		}
+
 		if (to.isContract()){
 			// If the recipient is SCORE,
 			//   then calls `tokenFallback` to hand over control.
@@ -447,6 +445,7 @@ public class TapToken implements IRC2{
 		}
 
 		// Emits an event log `Transfer`
+		Context.println("Emit an event log Transfer from "+ from + " to " + to);
 		this.Transfer(from, to, value, data);
 		if ( !this.switchDivsToStakedTapEnabled.getOrDefault(false) ){
 			ArrayDB<Address> addressChanges = this.changes.get(this.addressUpdateDb.getOrDefault(0));
@@ -478,12 +477,12 @@ public class TapToken implements IRC2{
 	private void makeAvailable(Address from) {
 		// Check if the unstaking period has already been reached.
 
-		BigInteger[] sb = getStakedBalances(from);
+		DictDB<Integer, BigInteger> sb = this.stakedBalances.at(from);
 
-		if ( sb[Status.UNSTAKING_PERIOD].compareTo( BigInteger.valueOf(Context.getBlockTimestamp()) ) <= 0 ) {
-			BigInteger currUnstaked = sb[Status.UNSTAKING];
-			sb[Status.UNSTAKING] = BigInteger.ZERO;
-			sb[Status.AVAILABLE] = sb[Status.AVAILABLE].add(currUnstaked);
+		if ( sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO).compareTo( BigInteger.valueOf(Context.getBlockTimestamp()) ) <= 0 ) {
+			BigInteger currUnstaked = sb.getOrDefault(Status.UNSTAKING, ZERO);
+			sb.set(Status.UNSTAKING, BigInteger.ZERO);
+			sb.set(Status.AVAILABLE, sb.getOrDefault(Status.AVAILABLE, ZERO).add(currUnstaked));
 		}
 	}
 
@@ -504,12 +503,12 @@ public class TapToken implements IRC2{
 	}
 
 
+	/*
+    Set the minimum staking period
+    :param _time: Staking time period in days.
+	 */
 	@External
 	public void set_unstaking_period(BigInteger _time){
-		/*
-        Set the minimum staking period
-        :param _time: Staking time period in days.
-		 */
 
 		this.ownerOnly();
 		if (_time == null || _time.compareTo(BigInteger.ZERO) < 0 ) {
@@ -519,13 +518,13 @@ public class TapToken implements IRC2{
 		this.unstakingPeriod.set(totalTime);
 	}
 
+	/*
+    Set the maximum number a for loop can run for any operation
+    :param _loops: Maximum number of for loops allowed
+    :return:
+	 */
 	@External
 	public void set_max_loop(BigInteger _loops) {
-		/*
-        Set the maximum number a for loop can run for any operation
-        :param _loops: Maximum number of for loops allowed
-        :return:
-		 */
 		if(_loops == null) {
 			_loops = BigInteger.valueOf(100L);
 		}
@@ -533,63 +532,62 @@ public class TapToken implements IRC2{
 		this.maxLoop.set(_loops);
 	}
 
+	/*
+    Returns the minimum stake amount
+	 */
 	@External(readonly=true)
 	public BigInteger get_minimum_stake() {
-		/*
-        Returns the minimum stake amount
-		 */
 		return this.minimumStake.get();
 	}
 
+	/*
+    Returns the minimum staking period in days
+	 */
 	@External(readonly=true)
 	public BigInteger get_unstaking_period(){
-		/*
-        Returns the minimum staking period in days
-		 */
 		BigInteger timeInMicroseconds = this.unstakingPeriod.get();
 		BigInteger timeInDays = timeInMicroseconds; //TODO: there was a bug? // DAY_TO_MICROSECOND
 		return timeInDays;
 	}
 
+	/*
+    Returns the maximum number of for loops allowed in the score
+    :return:
+	 */
 	@External(readonly=true)
 	public BigInteger get_max_loop() {
-		/*
-        Returns the maximum number of for loops allowed in the score
-        :return:
-		 */
 		return this.maxLoop.get();
 	}
 
-	//TODO: variable names affects the contract? probably yes, preserve them
+	/*
+    Sets the dividends score address. The function can only be invoked by score owner.
+    :param _score: Score address of the dividends contract
+    :type _score: :class:`iconservice.base.address.Address`
+	 */
 	@External
 	public void set_dividends_score(Address _score) {
-		/*
-        Sets the dividends score address. The function can only be invoked by score owner.
-        :param _score: Score address of the dividends contract
-        :type _score: :class:`iconservice.base.address.Address`
-		 */
 		this.ownerOnly();
 		this.dividendsScore.set(_score);
 	}
 
+	/*
+    Returns the roulette score address.
+   :return: Address of the roulette score
+   :rtype: :class:`iconservice.base.address.Address`
+	 */
 	@External(readonly=true)
 	public Address get_dividends_score() {
-		/*
-         Returns the roulette score address.
-        :return: Address of the roulette score
-        :rtype: :class:`iconservice.base.address.Address`
-		 */
 		return this.dividendsScore.get();
 	}
 
+	/*
+    Returns the updated addresses and their balances for today. Returns empty dictionary if the updates has
+    completed
+    :return: Dictionary contains the addresses and their updated balances. Maximum number of addresses
+    and balances returned is defined by the max_loop
+	 */
 	@External
 	public Map<String, BigInteger> get_balance_updates() {
-		/*
-        Returns the updated addresses and their balances for today. Returns empty dictionary if the updates has
-        completed
-        :return: Dictionary contains the addresses and their updated balances. Maximum number of addresses
-        and balances returned is defined by the max_loop
-		 */
 		this.dividendsOnly();
 		ArrayDB<Address> balanceChanges = this.changes.get(this.balanceUpdateDb.getOrDefault(BigInteger.ZERO).intValue());
 
@@ -618,12 +616,12 @@ public class TapToken implements IRC2{
 		return Map.ofEntries(entries);
 	}
 
+	/*
+    Clears the array db storing yesterday's changes
+    :return: True if the array has been emptied
+	 */
 	@External
 	public boolean clear_yesterdays_changes() {
-		/*
-        Clears the array db storing yesterday's changes
-        :return: True if the array has been emptied
-		 */
 		this.dividendsOnly();
 		int yesterday = (this.addressUpdateDb.getOrDefault(0).intValue() + 1) % 2;
 		ArrayDB<Address> yesterdaysChanges = this.changes.get(yesterday);
@@ -679,15 +677,15 @@ public class TapToken implements IRC2{
 		}
 	}
 
+	/*
+    The provided address is set as blacklist address and will be excluded from TAP dividends.
+    Only the owner can set the blacklist address
+    :param _address: Address to be included in the blacklist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
 	@External
 	public void set_blacklist_address(Address _address) {
-		/*
-        The provided address is set as blacklist address and will be excluded from TAP dividends.
-        Only the owner can set the blacklist address
-        :param _address: Address to be included in the blacklist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-		 */
 		if ( Context.getCaller().equals(Context.getOwner())) {
 			this.BlacklistAddress(_address, "Added to Blacklist");
 			if ( !containsInArrayDb(_address , this.blacklistAddress) ){
@@ -696,12 +694,12 @@ public class TapToken implements IRC2{
 		}
 	}
 
+	/*
+    Switches the day when the distribution has to be started
+    :return:
+	 */
 	@External
 	public void switch_address_update_db() {
-		/*
-        Switches the day when the distribution has to be started
-        :return:
-		 */
 		this.dividendsOnly();
 		int newDay = (this.addressUpdateDb.getOrDefault(0) + 1) % 2;
 		this.addressUpdateDb.set(newDay);
@@ -709,14 +707,14 @@ public class TapToken implements IRC2{
 		this.indexAddressChanges.set(BigInteger.valueOf(addressChanges.size()));
 	}
 
+	/*
+    Returns the updated addresses. Returns empty dictionary if the updates has
+    completed
+    :return: Dictionary contains the addresses. Maximum number of addresses
+    and balances returned is defined by the max_loop
+	 */
 	@External
 	public Map<String, BigInteger> get_stake_updates() {
-		/*
-        Returns the updated addresses. Returns empty dictionary if the updates has
-        completed
-        :return: Dictionary contains the addresses. Maximum number of addresses
-        and balances returned is defined by the max_loop
-		 */
 		this.dividendsOnly();
 		this.stakingEnabledOnly();
 		this.switchDivsToStakedTapEnabledOnly();
@@ -740,7 +738,7 @@ public class TapToken implements IRC2{
 		//TODO: validate this logic
 		int j = 0;
 		for(int i=start; i< end; i++) {
-			entries[j] = Map.entry(stakeChanges.get(i).toString(),  this.staked_balance_of(stakeChanges.get(i)));
+			entries[j] = Map.entry(stakeChanges.get(i).toString(),  this.staked_balanceOf(stakeChanges.get(i)));
 			j++;
 		}
 		this.indexUpdateStake.set(BigInteger.valueOf(end));
@@ -788,15 +786,15 @@ public class TapToken implements IRC2{
 		return arrayDbToList(this.locklist);
 	}
 
+	/*
+    Removes the address from the locklist.
+    Only owner can remove the locklist address
+    :param _address: Address to be removed from locklist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
 	@External
 	public void remove_from_locklist(Address _address) {
-		/*
-        Removes the address from the locklist.
-        Only owner can remove the locklist address
-        :param _address: Address to be removed from locklist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-		 */
 		this.ownerOnly();
 		if (!containsInArrayDb(_address, this.locklist)){
 			Context.revert(_address+" not in locklist address");
@@ -812,15 +810,15 @@ public class TapToken implements IRC2{
 		}
 	}
 
+	/*
+    Add address to list of addresses that cannot transfer TAP.
+    Only the owner can set the locklist address
+    :param _address: Address to be included in the locklist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
 	@External
 	public void set_locklist_address(Address _address) {
-		/*
-        Add address to list of addresses that cannot transfer TAP.
-        Only the owner can set the locklist address
-        :param _address: Address to be included in the locklist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-		 */
 		this.ownerOnly();
 		this.stakingEnabledOnly();
 
@@ -830,14 +828,15 @@ public class TapToken implements IRC2{
 		}
 
 		// Unstake TAP of locklist address
-		BigInteger stakedBalance = getStakedBalances(_address)[Status.STAKED];
+
+		BigInteger stakedBalance = this.stakedBalances.at(_address).getOrDefault(Status.STAKED, ZERO);
 		if (stakedBalance.compareTo(BigInteger.ZERO) > 0) {
 			// Check if the unstaking period has already been reached.
 			this.makeAvailable(_address);
-			BigInteger[] sb = getStakedBalances(_address);
-			sb[Status.STAKED] = BigInteger.ZERO;
-			sb[Status.UNSTAKING] = sb[Status.UNSTAKING].add(stakedBalance);
-			sb[Status.UNSTAKING_PERIOD] = this.unstakingPeriod.get().add(BigInteger.valueOf(Context.getBlockTimestamp()));
+			DictDB<Integer, BigInteger> sb = this.stakedBalances.at(_address);
+			sb.set(Status.STAKED, BigInteger.ZERO);
+			sb.set(Status.UNSTAKING, sb.get(Status.UNSTAKING).add(stakedBalance));
+			sb.set(Status.UNSTAKING_PERIOD, this.unstakingPeriod.get().add(BigInteger.valueOf(Context.getBlockTimestamp())));
 			this.totalStakedBalance.set( this.totalStakedBalance.getOrDefault(BigInteger.ZERO).subtract(stakedBalance ));
 			ArrayDB<Address> stakeAddressChanges = this.stakeChanges.get(this.stakeAddressUpdateDb.get());
 			stakeAddressChanges.add(_address);
@@ -855,15 +854,15 @@ public class TapToken implements IRC2{
 		return arrayDbToList(this.pauseWhitelist);
 	}
 
+	/*
+    Removes the address from whitelist.
+    Only owner can remove the whitelist address
+    :param _address: Address to be removed from whitelist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
 	@External
 	public void remove_from_whitelist(Address _address) {
-		/*
-        Removes the address from whitelist.
-        Only owner can remove the whitelist address
-        :param _address: Address to be removed from whitelist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-		 */
 		this.ownerOnly();
 		if (!containsInArrayDb(_address, this.pauseWhitelist)) {
 			Context.revert(_address+ " not in whitelist address");
@@ -879,21 +878,21 @@ public class TapToken implements IRC2{
 		}
 	}
 
-    @External
-    public void set_whitelist_address(Address _address) {
-        /*
-        Add address to list of addresses exempt from transfer pause.
-        Only the owner can set the whitelist address
-        :param _address: Address to be included in the whitelist
-        :type _address: :class:`iconservice.base.address.Address`
-        :return:
-        */
-        this.ownerOnly();
-        this.WhitelistAddress(_address, "Added to Pause Whitelist");
-        if ( !containsInArrayDb(_address, this.pauseWhitelist)) {
-            this.pauseWhitelist.add(_address);
-        }
-    }
+	/*
+    Add address to list of addresses exempt from transfer pause.
+    Only the owner can set the whitelist address
+    :param _address: Address to be included in the whitelist
+    :type _address: :class:`iconservice.base.address.Address`
+    :return:
+	 */
+	@External
+	public void set_whitelist_address(Address _address) {
+		this.ownerOnly();
+		this.WhitelistAddress(_address, "Added to Pause Whitelist");
+		if ( !containsInArrayDb(_address, this.pauseWhitelist)) {
+			this.pauseWhitelist.add(_address);
+		}
+	}
 
 	private <T> boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
@@ -911,40 +910,17 @@ public class TapToken implements IRC2{
 		return found;
 	}
 
-	private DictDB<Address, BigInteger[]> getInitStakedBalancesFor(Address owner) {
-		BigInteger[] value = this.stakedBalances.get(owner);
-		if(value == null) {
-			this.stakedBalances.set(owner, new BigInteger[]
-					{BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO});
+	// BigInteger#pow() is not implemented in the shadow BigInteger.
+	// we need to use our implementation for that.
+	private static BigInteger pow(BigInteger base, int exponent) {
+		BigInteger result = BigInteger.ONE;
+		for (int i = 0; i < exponent; i++) {
+			result = result.multiply(base);
 		}
-		return this.stakedBalances;
+		return result;
 	}
 
-	private BigInteger[] getStakedBalances(Address owner) {
-		var sb = getInitStakedBalancesFor(owner);
-		return sb.get(owner);
-	}
-
-	private BigInteger[] getStakedBalancesReadOnly(Address owner) {
-		BigInteger[] value = this.stakedBalances.get(owner);
-		if(value == null) {
-			return new BigInteger[]
-					{BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO,BigInteger.ZERO};
-		}
-		return value;
-	}
-
-    // BigInteger#pow() is not implemented in the shadow BigInteger.
-    // we need to use our implementation for that.
-    private static BigInteger pow(BigInteger base, int exponent) {
-        BigInteger result = BigInteger.ONE;
-        for (int i = 0; i < exponent; i++) {
-            result = result.multiply(base);
-        }
-        return result;
-    }
-
-    private <T> List<T> arrayDbToList(ArrayDB<T> arraydb) {
+	private <T> List<T> arrayDbToList(ArrayDB<T> arraydb) {
 		@SuppressWarnings("unchecked")
 		T[] addressList = (T[])new Object[arraydb.size()];
 
@@ -952,5 +928,5 @@ public class TapToken implements IRC2{
 			addressList[i] = arraydb.get(i);
 		}
 		return List.of(addressList);
-    }
+	}
 }

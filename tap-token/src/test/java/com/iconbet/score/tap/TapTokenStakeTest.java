@@ -18,7 +18,7 @@ import com.iconloop.score.test.TestBase;
 
 import score.Context;
 
-class TapTokenStake extends TestBase{
+class TapTokenStakeTest extends TestBase{
 
 	private static final ServiceManager sm = getServiceManager();
 	private static final Account owner = sm.createAccount();

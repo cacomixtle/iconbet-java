@@ -1,8 +1,8 @@
 package com.iconbet.score.daofund;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import score.Address;
 import score.ArrayDB;
@@ -16,7 +16,7 @@ import score.annotation.Payable;
 
 public class DaoFund {
 	
-	public String TAG = "ICONbet DAOfund";
+	public static final String TAG = "ICONbet DAOfund";
 	
     private static final String ADMINS = "admins";
     private static final String WITHDRAW_COUNT = "withdraw_count";
@@ -27,8 +27,7 @@ public class DaoFund {
 
 	private final ArrayDB<Address> admins = Context.newArrayDB(ADMINS, Address.class);
 	private final VarDB<BigInteger> withdraw_count = Context.newVarDB(WITHDRAW_COUNT, BigInteger.class);
-	//private final DictDB<String,LinkedList> withdraw_record = Context.newDictDB(WITHDRAW_RECORD, LinkedList.class);
-	private BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
+	private final BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
 
 
 	
@@ -112,12 +111,12 @@ public class DaoFund {
 	@External(readonly = true)
 	public List<Address> get_admins() {
 		
-		List<Address> addressList = new ArrayList<>();
+		Address[] addressList = new Address[this.admins.size()];
 
 		for (int i=0; i< this.admins.size(); i++) {
-			addressList.add(this.admins.get(i));
+			addressList[i] = this.admins.get(i);
 		}
-		return addressList;
+		return List.of(addressList);
 	}
 	
 	/***
@@ -125,9 +124,7 @@ public class DaoFund {
 	 ***/
 	@External
 	@Payable
-	public void add_fund() {
-		
-	}
+	public void add_fund() {}
 		 
 	@External
 	public void withdraw_fund( Address _address, BigInteger _amount, String _memo) {
@@ -146,11 +143,11 @@ public class DaoFund {
 			
 			BigInteger _count = this.withdraw_count.get();
 			BigInteger _withdraw_count = _count.add(BigInteger.ONE);
-			
+
 			BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
 			BigInteger day = BigInteger.ZERO;
 			day = day.add(now.divide(X_6));
-			
+
 			this.withdraw_count.set(_withdraw_count);
 			this.withdraw_record.at(_withdraw_count).set("withdraw_amount", _amount.toString());
 			this.withdraw_record.at(_withdraw_count).set("withdraw_address", _address.toString());
@@ -170,19 +167,17 @@ public class DaoFund {
 		return this.withdraw_count.get();
 	}
 	
+	@SuppressWarnings("unchecked")
 	@External(readonly = true)
-	public 	ArrayDB<String> get_withdraw_records(BigInteger _start, BigInteger _end) {
-		ArrayDB<String> withdrawRecord = Context.newArrayDB("withdrawRecord", String.class);
+	public List<String> get_withdraw_records(BigInteger _start, BigInteger _end) {
 		BigInteger wd_count = this.withdraw_count.get();
 		
 		if ( !(_start != null || _end!= null || wd_count !=null) ) {
-			withdrawRecord.add("No Records Found.");
-			return withdrawRecord;
+			return List.of("No Records Found.");
 		}
 		
 		if (wd_count.compareTo(BigInteger.ZERO) == 0) {
-			withdrawRecord.add("No Records Found.");
-			return withdrawRecord;
+			return List.of("No Records Found.");
 		}
 		
 		if (_start.compareTo(BigInteger.ZERO) == 0 && _end.compareTo(BigInteger.ZERO)== 0 ) {
@@ -202,60 +197,47 @@ public class DaoFund {
 		}
 		
 		if ( _start.compareTo(_end) >= 1) {
-			withdrawRecord.add("Start must not be greater than or equal to end.");
-			return withdrawRecord;
+			return List.of("Start must not be greater than or equal to end.");
 		}
 		
 		if ( _end.subtract(_start).compareTo(BATCH_SIZE) == 1 ) {
-			withdrawRecord.add("Maximum allowed range is " +BATCH_SIZE.longValue());
-
-			return withdrawRecord;
+			return List.of("Maximum allowed range is " +BATCH_SIZE.longValue());
 		}
-		
+
+		Map.Entry<String, String>[] entries = new Map.Entry[4];
+		int j = 0;
+		//TODO:verify the index here, and most important, why in py adds one
+		String[] listJson = new String[_end.intValue()-_start.intValue()];
 		for( int _withdraw = _start.intValue();  _withdraw<=_end.intValue(); _withdraw++) {
 			
 			BigInteger idx = BigInteger.valueOf(_withdraw);
-			
-			String withdraw_address 	=  this.withdraw_record.at(idx).get("withdraw_address");		
-			String withdraw_timestamp 	=  this.withdraw_record.at(idx).get("withdraw_timestamp");
-			String withdraw_reason 		=  this.withdraw_record.at(idx).get("withdraw_reason");
-			String withdraw_amount 		=  this.withdraw_record.at(idx).get("withdraw_amount");
-			
-			withdrawRecord.add(withdraw_address);
-			withdrawRecord.add(withdraw_timestamp);
-			withdrawRecord.add(withdraw_reason);
-			withdrawRecord.add(withdraw_amount);
-			
-		}
-	
-		
-		return withdrawRecord;
-	}
-	
-	
-	@External(readonly = true)
-	public  ArrayDB<String> get_withdraw_record_by_index(BigInteger _idx ) {
-		ArrayDB<String> withdrawRecord = Context.newArrayDB("withdrawRecord", String.class);	 
-		BigInteger _count = this.withdraw_count.get();
-		
-		if (_idx.compareTo(BigInteger.ZERO) <= 0 || _idx.compareTo(_count) == 1 ) {
-			withdrawRecord.set(-1,  _idx.toString() +" must be in range [1," +_count.toString() + "]");
-			return withdrawRecord;
-		}
-		
-		String withdraw_address 	=  this.withdraw_record.at(_idx).get("withdraw_address");		
-		String withdraw_timestamp 	=  this.withdraw_record.at(_idx).get("withdraw_timestamp");
-		String withdraw_reason 		=  this.withdraw_record.at(_idx).get("withdraw_reason");
-		String withdraw_amount 		=  this.withdraw_record.at(_idx).get("withdraw_amount");
 
-		withdrawRecord.add(withdraw_address);
-		withdrawRecord.add(withdraw_timestamp);
-		withdrawRecord.add(withdraw_reason);
-		withdrawRecord.add(withdraw_amount);
-		
-		return withdrawRecord;
+			entries[0] = Map.entry("withdraw_address", this.withdraw_record.at(idx).get("withdraw_address"));
+			entries[1] = Map.entry("withdraw_timestamp", this.withdraw_record.at(idx).get("withdraw_timestamp"));
+			entries[2] = Map.entry("withdraw_reason", this.withdraw_record.at(idx).get("withdraw_reason"));
+			entries[3] = Map.entry("withdraw_amount", this.withdraw_record.at(idx).get("withdraw_amount"));
+			listJson[j] = mapToJsonString(Map.ofEntries(entries));
+			j++;
+		}
+		return List.of(listJson);
 	}
-	
+
+
+	@External(readonly = true)
+	public Map<String, String> get_withdraw_record_by_index(BigInteger _idx ) {
+		BigInteger _count = this.withdraw_count.get();
+
+		if (_idx.compareTo(BigInteger.ZERO) <= 0 || _idx.compareTo(_count) > 0 ) {
+			return Map.of("-1", _idx.toString() +" must be in range [1," +_count.toString() + "]");
+		}
+
+		return Map.of(
+				"withdraw_address", this.withdraw_record.at(_idx).get("withdraw_address"),
+				"withdraw_timestamp",this.withdraw_record.at(_idx).get("withdraw_timestamp"),
+				"withdraw_reason",this.withdraw_record.at(_idx).get("withdraw_reason"),
+				"withdraw_amount",this.withdraw_record.at(_idx).get("withdraw_amount"));
+	}
+
 	@Payable
 	public void fallback() {}
 	
@@ -305,5 +287,23 @@ public class DaoFund {
 		return found;
 	}
 	
-	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static <K,V> String mapToJsonString(Map<K, V > map) {
+		StringBuilder sb = new StringBuilder("{");
+		for (Map.Entry<K, V> entry : map.entrySet()) {
+			if(entry.getValue() instanceof Map) {
+				sb.append("\""+entry.getKey()+"\":\""+ mapToJsonString((Map)entry.getValue())+"\",");
+			}else {
+				sb.append("\""+entry.getKey()+"\":\""+entry.getValue()+"\",");
+			}
+		}
+		char c = sb.charAt(sb.length()-1);
+		if(c == ',') {
+			sb.deleteCharAt(sb.length()-1);
+		}
+		sb.append("}");
+		String json = sb.toString();
+		Context.println(json);
+		return json;
+	}
 }

@@ -11,6 +11,9 @@ dependencies {
     testImplementation 'foundation.icon:javaee-unittest:0.9.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
+	//testImplementation project(':tap-token')
+	testImplementation project(':testinteg')
+	testImplementation 'foundation.icon:icon-sdk:2.0.0'
 }
 
 optimizedJar {
@@ -34,3 +37,39 @@ deployJar {
 test {
     useJUnitPlatform()
 }
+
+sourceSets {
+	integrationTest {
+		java.srcDirs = [file('src/intTest/java')]
+
+		compileClasspath += sourceSets.main.output + configurations.testRuntime
+		runtimeClasspath += output + compileClasspath
+	}
+}
+
+configurations {
+  integrationTestCompile.extendsFrom testImplementation
+  integrationTestRuntime.extendsFrom testRuntime
+  integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+//def sampleTokenJar = project(':tap-token').getTasks().getByName('optimizedJar')
+
+task integrationTest(type: Test, dependsOn: optimizedJar) {
+	useJUnitPlatform()
+	description = 'Runs integration tests.'
+	group = 'verification'
+
+	testClassesDirs = sourceSets.integrationTest.output.classesDirs
+	classpath = sourceSets.integrationTest.runtimeClasspath
+	testLogging.showStandardStreams = true
+
+	// use the common config files
+	systemProperty('env.props', new File(project(':testinteg').projectDir, 'conf/env.props'))
+
+	def prefix = 'score.path.'
+	systemProperty(prefix + project.name, optimizedJar.outputJarName)
+	//systemProperty(prefix + 'tap-token', sampleTokenJar.outputJarName)
+}
+
+//integrationTest.dependsOn(sampleTokenJar)

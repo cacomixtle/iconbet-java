@@ -3,8 +3,10 @@ include (
     'promotion',
     'reward-distribution',
     'daolette',
-	  'daolette-game',
+	'daolette-game',
     'tap-token',
     'game-authorization-score',
     'daofund-score',
     'dividend-distribution-score')
+    'daodice-score',
+	'testinteg')

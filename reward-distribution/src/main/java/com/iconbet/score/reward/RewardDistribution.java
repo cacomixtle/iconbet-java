@@ -51,7 +51,7 @@ public class RewardDistribution {
 	@EventLog(indexed=2)
 	public void TokenTransfer(Address recipient, BigInteger amount) {}
 
-	//TODO: review this py dept = 2 data structure
+	//TODO: review this py dept = 2 data structure and possible null pointer ex.
 	private BranchDB<BigInteger, DictDB<String, BigInteger>> _wagers = Context.newBranchDB(_WAGERS, BigInteger.class);
 	private VarDB<BigInteger> _day_index = Context.newVarDB(_DAY, BigInteger.class);
 	private ArrayDB<String> _even_day_addresses = Context.newArrayDB(_EVEN_DAY, String.class);
@@ -165,7 +165,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public boolean rewards_dist_complete() {
-		return this._dist_complete.get();
+		return this._dist_complete.getOrDefault(false);
 	}
 
 	/*
@@ -175,7 +175,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public BigInteger get_todays_total_wagers() {
-		return this._daily_totals[this._day_index.get().intValue()].get();
+		return this._daily_totals[this._day_index.get().intValue()].getOrDefault(ZERO);
 	}
 
 	/*
@@ -187,7 +187,7 @@ public class RewardDistribution {
 	 */
 	@External(readonly=true)
 	public BigInteger get_daily_wagers(String _player) {
-		return this._wagers.at(this._day_index.get()).get(_player);
+		return this._wagers.at(this._day_index.get()).getOrDefault(_player, ZERO);
 	}
 
 
@@ -215,7 +215,9 @@ public class RewardDistribution {
 	@External(readonly=true)
 	public BigInteger get_todays_tap_distribution() {
 
+		Context.println("calling tap-token["+ this._token_score.get() +"].balanceOf for reward address: "+ Context.getAddress().toString());
 		BigInteger remainingTokens = Context.call(BigInteger.class, this._token_score.get(),  "balanceOf", Context.getAddress());
+		Context.println("remain tokens: "+ remainingTokens + " of "+ Context.getAddress());
 		if (remainingTokens.equals(BigInteger.valueOf(264000000).multiply(TAP))) {
 			return TWO.multiply(DAILY_TOKEN_DISTRIBUTION).add(remainingTokens).mod(DAILY_TOKEN_DISTRIBUTION);
 		}else if (remainingTokens.compareTo( BigInteger.valueOf(251000000).multiply(TAP) ) >= 0) {
@@ -358,7 +360,6 @@ public class RewardDistribution {
     :return:
 	 */
 	public void _set_batch_size() {
-		//game_score = self.create_interface_score(self._game_score.get(), GameInterface)
 		BigInteger size = Context.call(BigInteger.class, this._game_score.get(), "get_batch_size", 
 				BigInteger.valueOf(
 						this._addresses[this._day_index.get().intValue()]
@@ -458,8 +459,9 @@ public class RewardDistribution {
 	@External
 	public void tokenFallback(Address _from, BigInteger _value,byte[] _data) {
 
+		Context.println("calling balance of token score "+ this._token_score.get() + " for addr "  +Context.getAddress());
 		BigInteger remainingTokens = Context.call(BigInteger.class, this._token_score.get(), "balanceOf", Context.getAddress());
-
+		Context.println("remaining tokens of "+ Context.getAddress() +": "+ remainingTokens);
 		if (remainingTokens.equals( BigInteger.valueOf(264000000).multiply(TAP)) ){
 			Context.revert("Not able to receive further TAP when the balance is 264M tap tokens");
 		}
@@ -489,10 +491,19 @@ public class RewardDistribution {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static <K,V> String mapToJsonString(Map<K, V > map) {
+		if( map.isEmpty()) {
+			return null;
+		}
+
 		StringBuilder sb = new StringBuilder("{");
 		for (Map.Entry<K, V> entry : map.entrySet()) {
 			if(entry.getValue() instanceof Map) {
-				sb.append("\""+entry.getKey()+"\":\""+ mapToJsonString((Map)entry.getValue())+"\",");
+				String subEntry = mapToJsonString((Map)entry.getValue());
+				if(subEntry != null) {
+					sb.append("\""+entry.getKey()+"\":\""+ subEntry+"\",");	
+				}else {
+					sb.append("\""+entry.getKey()+"\":null ,");
+				}
 			}else {
 				sb.append("\""+entry.getKey()+"\":\""+entry.getValue()+"\",");
 			}

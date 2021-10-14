@@ -70,7 +70,7 @@ class TapTokenTest extends TestBase {
 	}
 
 	@Test
-	void transfer() {
+	void testTransfer() {
 
 		Account alice = sm.createAccount();
 		BigInteger value = TEN.pow(decimals.intValue());
@@ -193,7 +193,7 @@ class TapTokenTest extends TestBase {
 	@Test
 	void testStakedBalance() {
 		Account alice = sm.createAccount();
-		BigInteger balance = (BigInteger)tapToken.call("staked_balance_of", alice.getAddress());
+		BigInteger balance = (BigInteger)tapToken.call("staked_balanceOf", alice.getAddress());
 
 		assertNotNull(balance);
 		assertEquals(BigInteger.ZERO, balance);
@@ -202,7 +202,7 @@ class TapTokenTest extends TestBase {
 	@Test
 	void testUnStakedBalance() {
 		Account alice = sm.createAccount();
-		BigInteger balance = (BigInteger)tapToken.call("unstaked_balance_of", alice.getAddress());
+		BigInteger balance = (BigInteger)tapToken.call("unstaked_balanceOf", alice.getAddress());
 
 		assertNotNull(balance);
 		assertEquals(BigInteger.ZERO, balance);

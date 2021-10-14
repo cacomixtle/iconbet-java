@@ -54,6 +54,7 @@ public class Promotion {
 	@External
 	public void set_rewards_score(Address _score) {
 		if ( Context.getCaller().equals(Context.getOwner()) ){
+			Context.println("setting reward score as: "+ _score);
 			this._rewards_score.set(_score);
 		}
 	}
@@ -77,6 +78,7 @@ public class Promotion {
 	@External
 	public void set_dividends_score(Address _score) {
 		if ( Context.getCaller().equals(Context.getOwner()) ){
+			Context.println("setting dividens score as: "+_score);
 			this._dividends_score.set(_score);
 		}
 	}
@@ -99,7 +101,13 @@ public class Promotion {
 	public void _distribute_prizes() {
 		String json = Context.call(String.class, this._rewards_score.get(),  "get_daily_wager_totals");
 
+		Context.println("json received: " + json);
 		JsonObject wagerTotals = Json.parse(json).asObject();
+		if(wagerTotals.get("yesterday").isNull()) {
+			Context.println("no wagers found for Yestarday");
+			return;
+		}
+
 		Iterator<Member> it = wagerTotals.get("yesterday").asObject().iterator();
 
 		Map.Entry<String, BigInteger>[] wagers = new Map.Entry[wagerTotals.get("yesterday").asObject().size()];
@@ -107,7 +115,8 @@ public class Promotion {
 		int j = 0;
 		while(it.hasNext()) {
 			Member t = it.next();
-			wagers[j] = Map.entry(t.getName(), new BigInteger(t.getValue().asString())); 
+			wagers[j] = Map.entry(t.getName(), new BigInteger(t.getValue().asString()));
+			Context.println("wager found: " + wagers[j]);
 			j++;
 		}
 
@@ -148,6 +157,7 @@ public class Promotion {
 
 	@Payable
 	public void fallback() {
+		Context.println("caller "+ Context.getCaller());
 		if ( this._dividends_score.get()!= null && Context.getCaller().equals(this._dividends_score.get())){
 			this._total_prizes.set(Context.getValue());
 			this._distribute_prizes();
