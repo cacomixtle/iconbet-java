@@ -845,6 +845,7 @@ public class Authorization{
 	}
 
 
+	//TODO: we can chage this from String, String to String, BigInteger
 	@SuppressWarnings("unchecked")
 	@External(readonly = true)
 	public Map<String, String> get_games_excess(BigInteger day) {
