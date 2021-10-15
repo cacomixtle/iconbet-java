@@ -37,6 +37,7 @@ class DaoletteGameIT extends TestBase{
 
 	private static Score daoletteGame;
 	private static Score daolette;
+	private static Score dividendDistribution;
 	private static Score authorization;
 	private static Score rewardDistribution;
 	private static Score tapToken;
@@ -69,7 +70,8 @@ class DaoletteGameIT extends TestBase{
 
 		daoletteGame = txHandler.deploy(chain.godWallet, Score.getFilePath("daolette-game"), null);
 		daolette = txHandler.deploy(chain.godWallet, Score.getFilePath("daolette"), null);
-        authorization = txHandler.deploy(chain.godWallet, Score.getFilePath("game-authorization-score"), null);
+		dividendDistribution = txHandler.deploy(chain.godWallet, Score.getFilePath("dividend-distribution-score"), null);
+		authorization = txHandler.deploy(chain.godWallet, Score.getFilePath("game-authorization-score"), null);
 		rewardDistribution = txHandler.deploy(chain.godWallet, Score.getFilePath("reward-distribution"), null);
 
 		tapToken = txHandler.deploy(chain.godWallet, Score.getFilePath("tap-token"), new RpcObject.Builder()
@@ -178,9 +180,30 @@ class DaoletteGameIT extends TestBase{
 				.put("_score", new RpcValue(rewardDistribution.getAddress()))
 				.build());
 
+		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(dividendDistribution.getAddress()))
+				.build());
 		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_game_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(daolette.getAddress()))
+				.build());
+		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_token_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(tapToken.getAddress()))
+				.build());
+
+		dividendDistribution.invokeAndWaitResult(chain.godWallet, "set_token_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(tapToken.getAddress()))
+				.build());
+		dividendDistribution.invokeAndWaitResult(chain.godWallet, "set_game_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(daolette.getAddress()))
+				.build());
+		dividendDistribution.invokeAndWaitResult(chain.godWallet, "set_game_auth_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(authorization.getAddress()))
 				.build());
 
 		authorization.invokeAndWaitResult(chain.godWallet, "set_roulette_score", 
