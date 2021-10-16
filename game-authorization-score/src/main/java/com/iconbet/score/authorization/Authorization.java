@@ -7,9 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.eclipsesource.json.Json;
-import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
-import com.eclipsesource.json.JsonObject.Member;
 import com.eclipsesource.json.JsonValue;
 
 import score.Address;
@@ -39,6 +37,8 @@ public class Authorization{
 		
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
 		day.set(now.divide(U_SECONDS_DAY));
+		//TODO: should we define it as false by default?
+		this.apply_watch_dog_method.set(false);
 	}
 	
 	
@@ -362,15 +362,15 @@ public class Authorization{
 		}
 		
         JsonValue json = Json.parse(_gamedata);
-        if (!json.isArray()) {
-            throw new IllegalArgumentException("Not json array");
+        if (!json.isObject()) {
+            throw new IllegalArgumentException("_gamedata parameter is not a json object");
         }
        
-        JsonArray array = json.asArray();
+        JsonObject jsonObject= json.asObject();
         
-        _check_game_metadata(array);
+        _check_game_metadata(jsonObject);
 
-		Address scoreAddress =  Address.fromString(getValueFromItem(array,"scoreAddress"));
+		Address scoreAddress =  Address.fromString(jsonObject.get("scoreAddress").asString());
 		Address score_at_address = Context.call(Address.class, scoreAddress,"get_score_owner");
 		
 		if (!sender.equals(score_at_address)) {
@@ -391,7 +391,7 @@ public class Authorization{
 		this.proposal_data.set(scoreAddress, _gamedata); 
 		
 		if ( this.apply_watch_dog_method.get()) {
-			BigInteger maxPayout = new BigInteger(getValueFromItem(array,"maxPayout"));
+			BigInteger maxPayout = new BigInteger(jsonObject.get("maxPayout").asString());
 			this.maximum_payouts.set(scoreAddress, maxPayout);
 		}
  
@@ -430,13 +430,13 @@ public class Authorization{
 			Context.revert("Only suspended games may be deleted.");
 		}
 		
-		this.status_data.set(_scoreAddress, statusScoreAddress);       	
+		this.status_data.set(_scoreAddress, _status);
 		
 	}
   
 
 	@External
-	public void set_game_ready( Address _scoreAddress ) {
+	public void set_game_ready(Address _scoreAddress ) {
 		/***
         When the game developer has completed the code for SCORE, can set the
         address of the game as ready.
@@ -451,33 +451,30 @@ public class Authorization{
 		if (!sender.equals(owner)) {
 				Context.revert("Sender not the owner of SCORE ");
 			}
-		
+        this.status_data.set(_scoreAddress, "gameReady");
 	}
-  
-	
+
+	/***
+    Sanity checks for the game metadata
+    :param _metadata: JSON metadata of the game
+    :type _metadata: dict
+    :return:
+    ***/
 	/// question=? Python  def _check_game_metadata(self, _metadata: dict) ?dict?
 	/// TODO Cambiar a Map o Json 
-	public void _check_game_metadata(JsonArray _metadata) {
-		/***
-        Sanity checks for the game metadata
-        :param _metadata: JSON metadata of the game
-        :type _metadata: dict
-        :return:
-        ***/	
-				
+	public void _check_game_metadata(JsonObject _metadata) {
+
 		//All fields should be provided       
-        
-        for (JsonValue item : _metadata) {
-            for (Member member : item.asObject()) {
-            	 String field = member.getName();
-            	 if (!METADATA_FIELDS.contains(field)) {
-       				Context.revert("There is no "+field+" for the game");
-            	 }
-            }		
+        for(String name: METADATA_FIELDS) {
+        	if(!_metadata.contains(name)) {
+        		Context.revert("There is no "+name+" for the game");
+        	}
         }
-        
+
+        Context.println("is apply_watch_dog_method ? "+ this.apply_watch_dog_method.get());
+
 		if ( this.apply_watch_dog_method.get()) {
-			String maxPayoutStr = getValueFromItem(_metadata,"maxPayout");
+			String maxPayoutStr = _metadata.get("maxPayout").asString();
 			if (!maxPayoutStr.isEmpty()) {
 				BigInteger maxPayout = new BigInteger(maxPayoutStr);
             	if (maxPayout.compareTo(_1_ICX) == -1) {
@@ -487,37 +484,38 @@ public class Authorization{
 				Context.revert("There is no maxPayout for the game");
 			}
 		}
-		
+
+		//TODO: use getString(name, default value) to prevent null pointer exceptions
 		// Check if name is empty
-		String nameStr = getValueFromItem(_metadata,"name");
+		String nameStr = _metadata.get("name").asString();
 		if (nameStr.isEmpty()) {
 			Context.revert("Game name cant be empty");
 		}
-		
+
 		// check if scoreAddress is a valid contract address
-		String scoreAddressStr = getValueFromItem(_metadata,"name");
+		String scoreAddressStr = _metadata.get("scoreAddress").asString();
 		if (!scoreAddressStr.isEmpty()) {
 			Address scoreAddress = Address.fromString(scoreAddressStr);
 			if (!scoreAddress.isContract()) {
 				Context.revert(scoreAddress.toString() +" is not a valid contract address");
 			}
 		}
-		
+
 		// Check if minbet is within defined limit of 0.1 ICX
-		String minBetStr = getValueFromItem(_metadata,"minBet");
+		String minBetStr = _metadata.get("minBet").asString();
 		BigInteger minBet = new BigInteger(minBetStr);
 		if (minBet.compareTo(_1_ICX) == -1 ) {
 			Context.revert(minBet.toString() +" is less than 0.1 ICX");
 		}
-		
+
 	    // Check if proper game type is provided		
-		String gameType = getValueFromItem(_metadata,"gameType");
+		String gameType = _metadata.get("gameType").asString();
 		if (!GAME_TYPE.contains(gameType)) {
 			Context.revert("Not a valid game type");
 		}
-		
+
 		// Check for revenue share wallet address
-		String revwallet = getValueFromItem(_metadata,"revwallet");
+		String revwallet = _metadata.get("revShareWalletAddress").asString();
 		try {
 			Address revWalletAddress = Address.fromString(revwallet);
 			if (!revWalletAddress.isContract() ) {
@@ -526,38 +524,39 @@ public class Authorization{
 		}catch(Exception e) {
 			Context.revert("Invalid address");
 		}
+		Context.println("metadata json is valid");
 	}
-	
-	
+
+	/***
+    Accumulates daily wagers of the game. Updates the excess of the game.
+    Only roulette score can call this function.
+    :param game: Address of the game
+    :type game: :class:`iconservice.base.address.Address`
+    :param wager: Wager amount of the game
+    :type wager: int
+    :return:
+	***/
 	@External
 	public void accumulate_daily_wagers(Address game, BigInteger wager ) {
-		/***
-        Accumulates daily wagers of the game. Updates the excess of the game.
-        Only roulette score can call this function.
-        :param game: Address of the game
-        :type game: :class:`iconservice.base.address.Address`
-        :param wager: Wager amount of the game
-        :type wager: int
-        :return:
-		***/
 		Address sender = Context.getCaller();
-		
+
 		if (!sender.equals(this.roulette_score.get()) ) {
 			Context.revert("Only roulette score can invoke this method.");			
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());
 		BigInteger day = now.divide(U_SECONDS_DAY);
 
-		BigInteger wagerValue = this.wagers.at(day).get(game);
-		this.wagers.at(day).set(game,  wager.add(wagerValue));
+		BigInteger wagerValue = this.wagers.at(day).getOrDefault(game, ZERO);
+		this.wagers.at(day).set(game, wager.add(wagerValue));
 
-		BigInteger newTime =this.new_div_changing_time.get();
+		Context.println("acumulated wager at "+day+" for game "+ game + " is " + this.wagers.at(day).get(game));
+		BigInteger newTime = this.new_div_changing_time.get();
 
 		if ( newTime!= null && now.compareTo(newTime)>=1 ) {
-			BigInteger excess = this.todays_games_excess.get(game);
+			BigInteger excess = this.todays_games_excess.getOrDefault(game, ZERO);
 			this.todays_games_excess.set(game, excess.add(wager));
 		}
-				
+
 	}
 
 	@SuppressWarnings("unchecked")
@@ -601,9 +600,8 @@ public class Authorization{
 			Context.revert("Only roulette score can invoke this method.");
 		}
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
-		BigInteger day = BigInteger.ZERO;
-		day = day.add(now.divide(U_SECONDS_DAY));
-		
+		BigInteger day = now.divide(U_SECONDS_DAY);
+
 		if (this.apply_watch_dog_method.get()!= null && 
 				this.apply_watch_dog_method.get() ) {
 			try {
@@ -635,19 +633,19 @@ public class Authorization{
 			
 		}
 
-		BigInteger newPayOut = this.payouts.at(day).get(game);
+		BigInteger newPayOut = this.payouts.at(day).getOrDefault(game, ZERO);
 		this.payouts.at(day).set(game, payout.add(newPayOut));
 
 		if ( this.new_div_changing_time.get() != null && 
-				this.new_div_changing_time.get().compareTo(BigInteger.ZERO) != 0 &&
+				this.new_div_changing_time.get().compareTo(ZERO) != 0 &&
 				 day.compareTo(this.new_div_changing_time.get()) >= 1) {
-			BigInteger accumulate = this.todays_games_excess.get(game);
+			BigInteger accumulate = this.todays_games_excess.getOrDefault(game, ZERO);
 			this.todays_games_excess.set(game, accumulate.subtract(payout));
 		}
 		return false;
 	}
-	
-	
+
+
 	//Question   def get_daily_payouts(self, day: int = 0 ?? initilize if null?
 	@SuppressWarnings("unchecked")
 	@External(readonly = true)
@@ -729,12 +727,12 @@ public class Authorization{
 		
 		String gamedata =  this.proposal_data.get(_scoreAddress);
         JsonValue json = Json.parse(gamedata);
-        if (!json.isArray()) {
-            throw new IllegalArgumentException("Not json array");
+        if (!json.isObject()) {
+            throw new IllegalArgumentException("metadata is Not a json object");
         }       
-        JsonArray array = json.asArray();        
-        String revShareWalletAddressStr = getValueFromItem(array,"revShareWalletAddress");        
-		
+
+        String revShareWalletAddressStr = json.asObject().get("revShareWalletAddress").asString();
+
         return Address.fromString(revShareWalletAddressStr);
 	}
 	
@@ -751,7 +749,7 @@ public class Authorization{
 	}
 	
 	@External(readonly = true)
-	public String get_game_status(Address scoreAddress) {
+	public String get_game_status(Address _scoreAddress) {
 		/***
         Returns the status of the game.
         :param _scoreAddress: Address of the game
@@ -760,7 +758,7 @@ public class Authorization{
         :rtype: str
         ***/
 		
-		return status_data.get(scoreAddress);
+		return this.status_data.get(_scoreAddress);
 		
 	}
 
@@ -964,18 +962,6 @@ public class Authorization{
 	@External(readonly = true)
 	public boolean get_apply_watch_dog_method() {
 		return this.apply_watch_dog_method.get();
-	}
-
-	
-	private String getValueFromItem(JsonArray array, String nameItem) {
-        for (JsonValue item : array) {
-            JsonObject member = item.asObject();
-            String value = member.getString(nameItem,null);
-            if( value!=null) {
-            	return value;
-            }
-        }
-        return "";
 	}
 
 	private <T> Boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {

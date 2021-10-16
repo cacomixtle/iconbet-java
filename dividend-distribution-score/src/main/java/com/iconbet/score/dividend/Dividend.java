@@ -11,6 +11,7 @@ import java.util.Map;
 
 import score.Address;
 import score.ArrayDB;
+import score.BranchDB;
 import score.Context;
 import score.DictDB;
 import score.VarDB;
@@ -74,8 +75,8 @@ public class Dividend {
 	private final VarDB<Boolean> _divs_dist_complete =  Context.newVarDB(_DIVS_DIST_COMPLETE, Boolean.class);
 
 	// Variables related to batch of tap distribution
-	//TODO:not used
-	private final VarDB<BigInteger> _tap_dist_index = Context.newVarDB(_TAP_DIST_INDEX, BigInteger.class);
+	//TODO:not used, commented out
+	///private final VarDB<BigInteger> _tap_dist_index = Context.newVarDB(_TAP_DIST_INDEX, BigInteger.class);
 	private final VarDB<BigInteger> _batch_size = Context.newVarDB(_BATCH_SIZE, BigInteger.class);
 
 	// Tap holders and their balances of TAP tokens
@@ -116,8 +117,14 @@ public class Dividend {
 	private final ArrayDB<String> _stake_holders = Context.newArrayDB(_STAKE_HOLDERS, String.class);
 	private final DictDB<String, BigInteger> _stake_holders_index = Context.newDictDB(_STAKE_HOLDERS+"_indexes", BigInteger.class);
 
+	
+	//TODO: for now, using Branchdb to reduce the number of var to the max allowed = 31
+	/*
 	private final VarDB<Boolean> _stake_holders_migration_start = Context.newVarDB(_STAKE_HOLDERS+"_migration_start", Boolean.class);
 	private final VarDB<Boolean> _stake_holders_migration_complete = Context.newVarDB(_STAKE_HOLDERS+"_migration_complete",Boolean.class);
+*/
+	private final BranchDB<String, VarDB<Boolean>> _stake_holders_migration_start_complete = Context.newBranchDB(_STAKE_HOLDERS+"_migration_start_complete", Boolean.class);
+
 	private final VarDB<BigInteger> _stake_holders_migration_index = Context.newVarDB(_STAKE_HOLDERS+"_migration_index", BigInteger.class);
 
 	private final DictDB<String, BigInteger> _stake_balances = Context.newDictDB(_STAKE_BALANCES, BigInteger.class);
@@ -130,6 +137,8 @@ public class Dividend {
 
 	public Dividend() {
 		this._total_divs.set(ZERO);
+		_stake_holders_migration_start_complete.at("stake_holders_migration_start").set(false);
+		_stake_holders_migration_start_complete.at("stake_holders_migration_complete").set(false);
 	}
 
 	@EventLog(indexed=2)
@@ -228,7 +237,7 @@ public class Dividend {
     :return: True if the switch for dividends to staked tap is enabled
 	 */
 	@External(readonly=true)
-	public Boolean get_switch_dividends_to_staked_tap(){
+	public boolean get_switch_dividends_to_staked_tap(){
 		return this._switch_dividends_to_staked_tap.getOrDefault(false);
 	}
 
@@ -357,7 +366,7 @@ public class Dividend {
     :rtype: bool
 	 */
 	@External(readonly=true)
-	public Boolean dividends_dist_complete() {
+	public boolean dividends_dist_complete() {
 		return this._divs_dist_complete.getOrDefault(false);
 	}
 
@@ -392,13 +401,15 @@ public class Dividend {
     :rtype: bool
 	 */
 	@External
-	public Boolean distribute() {
+	public boolean distribute() {
 
+		/*not  migrate for now, looks like it will be removed
 		if (this.get_stake_holders_migration_start() && !this.get_stake_holders_migration_complete()) {
 			this._migrate_stake_holders();
-		}
+		}*/
 
 		if (this._dividends_received.getOrDefault(ZERO).equals(ONE)) {
+			Context.println("dividend is one");
 			this._divs_dist_complete.set(false);
 			this._dividends_received.set(TWO);
 			if (! this._switch_dividends_to_staked_tap.getOrDefault(false)) {
@@ -408,8 +419,10 @@ public class Dividend {
 			}
 
 		}else if (this._dividends_received.getOrDefault(ZERO).equals(TWO)) {
-			if (this._stake_holders_migration_complete.getOrDefault(false)) {
+			Context.println("dividend is two");
+			if (this._stake_holders_migration_start_complete.at("_stake_holders_migration_complete").getOrDefault(false)) {
 				if (this._update_stake_balances()) {
+					Context.println("updated stake balances");
 					Context.call(this._token_score.get(), "switch_stake_update_db");
 					//calculate total eligible staked tap tokens
 					this._set_total_staked_tap();
@@ -419,12 +432,12 @@ public class Dividend {
 			}
 
 		}else if (this._dividends_received.getOrDefault(ZERO).equals(_3)) {
-
+			Context.println("dividend is three");
 			// Set the dividends for each category
 			BigInteger balance = Context.getBalance(Context.getAddress());
 			this._total_divs.set(balance);
-			Boolean treasuryStatus = Context.call(Boolean.class, this._game_score.get(), "get_treasury_status");
-			if ( treasuryStatus!= null && treasuryStatus) {
+			boolean treasuryStatus = Context.call(Boolean.class, this._game_score.get(), "get_treasury_status");
+			if ( treasuryStatus) {
 				this._remaining_tap_divs.set(balance);
 				this._remaining_gamedev_divs.set(ZERO);
 				this._promo_divs.set(ZERO);
@@ -441,8 +454,8 @@ public class Dividend {
 			this._batch_size.set(batchSize);
 			this._dividends_received.set(ZERO);
 
-		}else if (this._divs_dist_complete.get()) {
-			if (this._stake_holders_migration_complete.getOrDefault(false)) {
+		}else if (this._divs_dist_complete.getOrDefault(false)) {
+			if (this._stake_holders_migration_start_complete.at("_stake_holders_migration_complete").getOrDefault(false)) {
 				this._update_stake_balances();
 				Context.call(this._token_score.get(), "clear_yesterdays_stake_changes");
 				return true;
@@ -767,7 +780,7 @@ public class Dividend {
     :return:
 	 */
 	@SuppressWarnings({ "unchecked" })
-	private Boolean _update_stake_balances() {
+	private boolean _update_stake_balances() {
 		Map<String, BigInteger> stake_balances = (Map<String, BigInteger>)Context.call(this._token_score.get(), "get_stake_updates");
 		if (stake_balances.size() == 0 ) {
 			return true;
@@ -791,7 +804,7 @@ public class Dividend {
 	 */
 	//TODO: not used
 	@SuppressWarnings({ "unchecked" })
-	private Boolean _update_balances() {
+	private boolean _update_balances() {
 		Map<String, BigInteger> tap_balances = (Map<String, BigInteger>)Context.call(this._token_score.get(), "get_balance_updates");
 
 		if (tap_balances.size ()== 0) {
@@ -813,6 +826,7 @@ public class Dividend {
     :return:
 	 */
 	private void _set_total_tap() {
+		Context.println("looking into blacklist address");
 		BigInteger total = ZERO;
 		for (int i = 0; i < this._blacklist_address.size(); i++) {
 			String address = this._blacklist_address.get(i);
@@ -1050,20 +1064,20 @@ public class Dividend {
 		BigInteger end = start.add(count);
 		for( int i = start.intValue(); i< end.intValue(); i++) {
 			String _address = this._stake_holders.get(i);
-			if (this._stake_holders_index.get(_address).equals(ZERO) ) {
-				this._stake_holders_index.set(_address, BigInteger.valueOf(i + 1));
+			if (this._stake_holders_index.getOrDefault(_address, ZERO).equals(ZERO) ) {
+				this._stake_holders_index.set(_address, BigInteger.valueOf(i + 1l));
 			}
 		}
 		if (end.equals(length)) {
-			this._stake_holders_migration_complete.set(true);
+			this._stake_holders_migration_start_complete.at("_stake_holders_migration_complete").set(true);
 		}else {
 			this._stake_holders_migration_index.set(start.add(count));
 		}
 	}
 
 	@External(readonly=true)
-	public Boolean get_stake_holders_migration_start() {
-		return this._stake_holders_migration_start.getOrDefault(false);
+	public boolean get_stake_holders_migration_start() {
+		return this._stake_holders_migration_start_complete.at("_stake_holders_migration_start").getOrDefault(false);
 	}
 
 	@External
@@ -1071,12 +1085,12 @@ public class Dividend {
 		if (! Context.getCaller().equals(Context.getOwner()) ) {
 			Context.revert(TAG + ": Only the owner of the score can call the method");
 		}
-		this._stake_holders_migration_start.set(true);
+		this._stake_holders_migration_start_complete.at("_stake_holders_migration_start").set(true);
 	}
 
 	@External(readonly=true)
-	public Boolean get_stake_holders_migration_complete() {
-		return this._stake_holders_migration_complete.getOrDefault(false);
+	public boolean get_stake_holders_migration_complete() {
+		return this._stake_holders_migration_start_complete.at("_stake_holders_migration_complete").getOrDefault(false);
 	}
 
 	@Payable

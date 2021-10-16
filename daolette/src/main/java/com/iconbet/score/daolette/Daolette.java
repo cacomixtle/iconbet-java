@@ -994,7 +994,7 @@ public class Daolette{
 		}
 		BigInteger payout;
 		if (betType.equals(BET_TYPES[1])){
-			payout = BigInteger.valueOf( MULTIPLIERS.get(BET_TYPES[5]).longValue() * 1000 ).multiply(amount).divide(BigInteger.valueOf(100));
+			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]) * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
 		}else {
 			payout = BigInteger.valueOf( MULTIPLIERS.get(betType).longValue()).multiply(amount);
 		}

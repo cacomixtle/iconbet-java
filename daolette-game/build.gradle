@@ -7,6 +7,15 @@ dependencies {
     testImplementation 'foundation.icon:javaee-unittest:0.9.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.0'
+	testImplementation project(':daolette')
+	testImplementation project(':dividend-distribution-score')
+	testImplementation project(':game-authorization-score')
+	testImplementation project(':reward-distribution')
+	testImplementation project(':tap-token')
+	testImplementation project(':testinteg')
+	testImplementation 'foundation.icon:icon-sdk:2.0.0'
+	testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.9.6'
+
 }
 
 optimizedJar {
@@ -31,3 +40,52 @@ test {
     useJUnitPlatform()
 }
 
+sourceSets {
+	integrationTest {
+		java.srcDirs = [file('src/intTest/java')]
+
+		compileClasspath += sourceSets.main.output + configurations.testRuntime
+		runtimeClasspath += output + compileClasspath
+	}
+}
+
+configurations {
+  integrationTestCompile.extendsFrom testImplementation
+  integrationTestRuntime.extendsFrom testRuntime
+  integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+def daoletteJar = project(':daolette').getTasks().getByName('optimizedJar')
+def dividendDistributionScoreJar = project(':dividend-distribution-score').getTasks().getByName('optimizedJar')
+def gameAuthorizationScoreJar = project(':game-authorization-score').getTasks().getByName('optimizedJar')
+def rewardDistributionJar = project(':reward-distribution').getTasks().getByName('optimizedJar')
+def tapTokenJar = project(':tap-token').getTasks().getByName('optimizedJar')
+
+task integrationTest(type: Test, dependsOn: optimizedJar) {
+	useJUnitPlatform()
+	description = 'Runs integration tests.'
+	group = 'verification'
+
+	testClassesDirs = sourceSets.integrationTest.output.classesDirs
+	classpath = sourceSets.integrationTest.runtimeClasspath
+	testLogging.showStandardStreams = true
+
+	// use the common config files
+	systemProperty('env.props', new File(project(':testinteg').projectDir, 'conf/env.props'))
+
+	def prefix = 'score.path.'
+
+	systemProperty(prefix + project.name, optimizedJar.outputJarName)
+	systemProperty(prefix + 'tap-token', tapTokenJar.outputJarName.substring(0, tapTokenJar.outputJarName.lastIndexOf("-optimized.jar") )+ "-"+project.version+"-optimized.jar" )
+	//TODO: for some reason daolette jar name is returned as daolette-0.1.0, and the other ones returns jar name without version
+	systemProperty(prefix + 'daolette', daoletteJar.outputJarName.substring(0, daoletteJar.outputJarName.lastIndexOf("-optimized.jar") )+ "-optimized.jar" )
+	systemProperty(prefix + 'dividend-distribution-score', dividendDistributionScoreJar.outputJarName.substring(0, dividendDistributionScoreJar.outputJarName.lastIndexOf("-optimized.jar") )+ "-"+project.version+"-optimized.jar" )
+	systemProperty(prefix + 'game-authorization-score', gameAuthorizationScoreJar.outputJarName.substring(0, gameAuthorizationScoreJar.outputJarName.lastIndexOf("-optimized.jar") )+ "-"+project.version+"-optimized.jar" )
+	systemProperty(prefix + 'reward-distribution', rewardDistributionJar.outputJarName.substring(0, rewardDistributionJar.outputJarName.lastIndexOf("-optimized.jar") )+ "-"+project.version+"-optimized.jar" )
+}
+
+integrationTest.dependsOn(daoletteJar)
+integrationTest.dependsOn(dividendDistributionScoreJar)
+integrationTest.dependsOn(gameAuthorizationScoreJar)
+integrationTest.dependsOn(rewardDistributionJar)
+integrationTest.dependsOn(tapTokenJar)

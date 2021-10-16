@@ -72,7 +72,7 @@ class PromotionIT extends TestBase{
 	}
 
 	@Test
-	void testDistributePrizes() throws IOException, ResultTimeoutException {
+	void testDistributePrizesByPayableFallback() throws IOException, ResultTimeoutException {
 		assertNotNull(promotion);
 
 		promotion.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
@@ -95,6 +95,8 @@ class PromotionIT extends TestBase{
         BigInteger steps = iconService.estimateStep(transaction).execute().add(BigInteger.valueOf(10000));
 
         SignedTransaction signedTransaction = new SignedTransaction(transaction, dividendScoreOwner, steps);
+
+        //method annotated with @Payable will be call when we transfer icx 
         iconService.sendTransaction(signedTransaction).execute();
 
 	}
