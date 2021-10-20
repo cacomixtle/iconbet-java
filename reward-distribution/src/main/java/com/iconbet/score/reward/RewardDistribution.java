@@ -377,7 +377,7 @@ public class RewardDistribution {
 			return;
 		}
 		Context.println("Beginning rewards distribution. "+ TAG);
-		int index = (this._day_index.get().intValue() + 1) % 2;
+		int index = (this._day_index.getOrDefault(ZERO).intValue() + 1) % 2;
 		int count = this._batch_size.getOrDefault(ZERO).intValue();
 		ArrayDB<String> addresses = this._addresses[index];
 		int length = addresses.size();
@@ -390,7 +390,7 @@ public class RewardDistribution {
 		Context.println("Length of address list: " + length + ". Remaining = " + remainingAddresses + " "+ TAG);
 
 		BigInteger totalDist = this._daily_dist.getOrDefault(ZERO);
-		BigInteger totalWagers = this._wager_total.get();
+		BigInteger totalWagers = this._wager_total.getOrDefault(ZERO);
 		if (totalWagers.equals(ZERO) ) {
 			this._dist_index.set(ZERO);
 			this._dist_complete.set(true);
@@ -398,7 +398,7 @@ public class RewardDistribution {
 		}
 
 		for (int i=start; i<end; i++ ) {
-			BigInteger wagered = this._wagers.at(BigInteger.valueOf(index)).get(addresses.get(i));
+			BigInteger wagered = this._wagers.at(BigInteger.valueOf(index)).getOrDefault(addresses.get(i), ZERO);
 			BigInteger rewardsDue = totalDist.multiply(wagered).divide(totalWagers);
 			totalDist = totalDist.subtract(rewardsDue);
 			totalWagers = totalWagers.subtract(wagered);
@@ -420,7 +420,7 @@ public class RewardDistribution {
 			this._dist_index.set(ZERO);
 			this._dist_complete.set(true);
 		}else{
-			this._dist_index.set(this._dist_index.get().add(BigInteger.valueOf(count)));
+			this._dist_index.set(this._dist_index.getOrDefault(ZERO).add(BigInteger.valueOf(count)));
 		}
 	}
 

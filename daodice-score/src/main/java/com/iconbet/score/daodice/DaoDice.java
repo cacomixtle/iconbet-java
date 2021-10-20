@@ -58,19 +58,19 @@ public class DaoDice {
 		}
 		this._game_on.set(Boolean.FALSE);
 	}
-	
+
 	@EventLog(indexed=3) 
 	public void BetPlaced(BigInteger amount, BigInteger upper, BigInteger lower) {}
-	
+
 	@EventLog(indexed=2)
 	public void BetSource( Address _from, BigInteger timestamp) {}
-	
+
 	@EventLog(indexed=3)
 	public void PayoutAmount(BigInteger payout, BigInteger main_bet_payout, BigInteger side_bet_payout) {}
-	
+
 	@EventLog(indexed=3)
 	public void BetResult(String spin, BigInteger winningNumber, BigInteger payout) {}
-	
+
 	@EventLog(indexed=2)
 	public void FundTransfer(Address recipient, BigInteger amount, String  note) {}
 
@@ -311,10 +311,10 @@ public class DaoDice {
 			Context.println("Betting amount "+main_bet_amount.toString() +" out of range. "+TAG);
 			Context.revert("Main Bet amount {"+main_bet_amount.toString() +"} out of range {"+BET_MIN.toString()+"},{"+main_bet_limit.toString()+"}");
 		}
-		
+
 		BigInteger main_bet_payoutResult = BigInteger.valueOf( (long)(MAIN_BET_MULTIPLIER * _100D) ).multiply(main_bet_amount);
 		BigInteger main_bet_payout = main_bet_payoutResult.divide(_100.multiply(gap));
-		
+
 		BigInteger payout = side_bet_payout.add(main_bet_payout);
 		BigInteger balance = Context.getBalance(this._roulette_score.get());
 		if (balance.compareTo(payout) == -1) {

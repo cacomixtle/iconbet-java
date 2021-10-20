@@ -1,5 +1,6 @@
 package com.iconbet.score.promotion;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.IOException;
@@ -15,7 +16,9 @@ import foundation.icon.icx.KeyWallet;
 import foundation.icon.icx.SignedTransaction;
 import foundation.icon.icx.Transaction;
 import foundation.icon.icx.TransactionBuilder;
+import foundation.icon.icx.data.TransactionResult;
 import foundation.icon.icx.transport.http.HttpProvider;
+import foundation.icon.icx.transport.jsonrpc.RpcItem;
 import foundation.icon.icx.transport.jsonrpc.RpcObject;
 import foundation.icon.icx.transport.jsonrpc.RpcValue;
 import foundation.icon.test.Env;
@@ -75,29 +78,36 @@ class PromotionIT extends TestBase{
 	void testDistributePrizesByPayableFallback() throws IOException, ResultTimeoutException {
 		assertNotNull(promotion);
 
-		promotion.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+		TransactionResult t = promotion.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(dividendScoreOwner.getAddress()))
 				.build());
 
+		assertNotNull(t);
+		assertEquals(BigInteger.ONE, t.getStatus());
 		promotion.invokeAndWaitResult(chain.godWallet, "set_rewards_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(rewardDistribution.getAddress()))
 				.build());
 
-        Transaction transaction = TransactionBuilder.newBuilder()
-                .nid(BigInteger.valueOf(chain.networkId))
-                .from(dividendScoreOwner.getAddress())
-                .to(promotion.getAddress())
-                .value(BigInteger.valueOf(1010))
-                .build();
+		RpcItem addrItem = promotion.call("get_rewards_score", new RpcObject.Builder().build());
+		assertNotNull(addrItem);
+		assertNotNull(addrItem.asAddress());
+		assertEquals(rewardDistribution.getAddress(), addrItem.asAddress());
 
-        BigInteger steps = iconService.estimateStep(transaction).execute().add(BigInteger.valueOf(10000));
+		Transaction transaction = TransactionBuilder.newBuilder()
+				.nid(BigInteger.valueOf(chain.networkId))
+				.from(dividendScoreOwner.getAddress())
+				.to(promotion.getAddress())
+				.value(BigInteger.valueOf(1010))
+				.build();
 
-        SignedTransaction signedTransaction = new SignedTransaction(transaction, dividendScoreOwner, steps);
+		BigInteger steps = iconService.estimateStep(transaction).execute().add(BigInteger.valueOf(10000));
 
-        //method annotated with @Payable will be call when we transfer icx 
-        iconService.sendTransaction(signedTransaction).execute();
+		SignedTransaction signedTransaction = new SignedTransaction(transaction, dividendScoreOwner, steps);
+
+		//method annotated with @Payable will be call when we transfer icx 
+		iconService.sendTransaction(signedTransaction).execute();
 
 	}
 
