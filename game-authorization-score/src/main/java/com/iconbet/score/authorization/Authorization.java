@@ -602,30 +602,27 @@ public class Authorization{
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
 		BigInteger day = now.divide(U_SECONDS_DAY);
 
-		if (this.apply_watch_dog_method.get()!= null && 
-				this.apply_watch_dog_method.get() ) {
+		if (this.apply_watch_dog_method.getOrDefault(false) ) {
 			try {
-				
-				if ( payout.compareTo(this.maximum_payouts.get(game)) == 1 ) {
+				Context.println("apply watch dog enabled . " + TAG);
+				if ( payout.compareTo(this.maximum_payouts.getOrDefault(game, ZERO)) == 1 ) {
 					Context.revert("Preventing Overpayment. Requested payout: " +payout.toString() +
 							". MaxPayout for this game: "+this.maximum_payouts.get(game) +
 							". "+ TAG);
 				}
 
-				BigInteger payOutDay =  this.payouts.at(day).get(game);
-				if (payOutDay == null) {
-					payOutDay = BigInteger.ZERO;
-				}
-
+				BigInteger payOutDay = this.payouts.at(day).getOrDefault(game, ZERO);
 				payOutDay = payOutDay.add(payout);
-				BigInteger wagerDay = this.wagers.at(day).get(game);
+				BigInteger wagerDay = this.wagers.at(day).getOrDefault(game, ZERO);
 				BigInteger incurred = payOutDay.subtract(wagerDay);
-				if(incurred.compareTo(this.maximum_loss.get()) >= 1) {
-					Context.revert("Limit loss. MaxLoss: " +this.maximum_loss.get()+". Loss Incurred if payout: "+
+				Context.println("incurred payout: " + incurred);
+				if(incurred.compareTo(this.maximum_loss.getOrDefault(ZERO) ) >= 1) {
+					Context.revert("Limit loss. MaxLoss: " +this.maximum_loss.getOrDefault(ZERO)+". Loss Incurred if payout: "+
 							incurred.intValue()+ " " +TAG);
 				}
 				
 			}catch (Exception e) {
+				Context.println("error thrown:" + e.getMessage());
 				this.status_data.set(game, "gameSuspended");
 				this.GameSuspended(game, e.getMessage());
 				return false;
@@ -634,15 +631,16 @@ public class Authorization{
 		}
 
 		BigInteger newPayOut = this.payouts.at(day).getOrDefault(game, ZERO);
-		this.payouts.at(day).set(game, payout.add(newPayOut));
+		payout = payout.add(newPayOut);
+		this.payouts.at(day).set(game, payout);
+		Context.println("new payout:" + payout + "at day " +day + " ." + TAG);
 
-		if ( this.new_div_changing_time.get() != null && 
-				this.new_div_changing_time.get().compareTo(ZERO) != 0 &&
+		if ( this.new_div_changing_time.getOrDefault(ZERO).compareTo(ZERO) != 0 &&
 				 day.compareTo(this.new_div_changing_time.get()) >= 1) {
 			BigInteger accumulate = this.todays_games_excess.getOrDefault(game, ZERO);
 			this.todays_games_excess.set(game, accumulate.subtract(payout));
 		}
-		return false;
+		return true;
 	}
 
 

@@ -215,7 +215,7 @@ class DaoletteGameIT extends TestBase{
 		daolette.invokeAndWaitResult(chain.godWallet, "add_to_excess", 
 				new RpcObject.Builder()
 				.build(),
-				BigInteger.valueOf(100).multiply(MULTIPLIER)
+				BigInteger.valueOf(1000).multiply(MULTIPLIER)
 				,null);
 
 		//bet on daolette game
@@ -227,10 +227,54 @@ class DaoletteGameIT extends TestBase{
 				new BigInteger("200000000000000000"),
 				new BigInteger("100000000"));
 
+		System.out.println(txn);
 		assertEquals(BigInteger.ONE, txn.getStatus());
 		Optional<EventLog> daoletteGameEvent = txn.getEventLogs().stream().filter(e-> e.getScoreAddress().equals(daoletteGame.getAddress().toString())).findFirst();
 		assertTrue(daoletteGameEvent.isPresent());
+
+		//bet on daolette game
+		txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_even_odd", 
+				new RpcObject.Builder()
+				.put("even_odd", new RpcValue(true))
+				.put("user_seed", new RpcValue("cacomixtle1"))
+				.build(),
+				new BigInteger("200000000000000000"),
+				new BigInteger("100000000"));
+
 		System.out.println(txn);
+		assertEquals(BigInteger.ONE, txn.getStatus());
+		daoletteGameEvent = txn.getEventLogs().stream().filter(e-> e.getScoreAddress().equals(daoletteGame.getAddress().toString())).findFirst();
+		assertTrue(daoletteGameEvent.isPresent());
+
+		txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_color", 
+				new RpcObject.Builder()
+				.put("color", new RpcValue(true))
+				.put("user_seed", new RpcValue("cacomixtle2"))
+				.build(),
+				new BigInteger("200000000000000000"),
+				new BigInteger("100000000"));
+		System.out.println(txn);
+		assertEquals(BigInteger.ONE, txn.getStatus());
+
+		txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_color", 
+				new RpcObject.Builder()
+				.put("color", new RpcValue(false))
+				.put("user_seed", new RpcValue("cacomixtle3"))
+				.build(),
+				new BigInteger("200000000000000000"),
+				new BigInteger("100000000"));
+		System.out.println(txn);
+		assertEquals(BigInteger.ONE, txn.getStatus());
+
+		txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_numbers", 
+				new RpcObject.Builder()
+				.put("numbers", new RpcValue("1,3,5"))
+				.put("user_seed", new RpcValue("cacomixtle4"))
+				.build(),
+				new BigInteger("200000000000000000"),
+				new BigInteger("100000000"));
+		System.out.println(txn);
+		assertEquals(BigInteger.ONE, txn.getStatus());
 
 	}
 
