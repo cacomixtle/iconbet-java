@@ -421,7 +421,7 @@ public class TapToken implements IRC2{
 		DictDB<Integer, BigInteger> sbFrom = this.stakedBalances.at(from);
 		DictDB<Integer, BigInteger> sbTo = this.stakedBalances.at(to);
 
-		if (sbFrom.get(Status.AVAILABLE).compareTo(value) < 0 ) {
+		if (sbFrom.getOrDefault(Status.AVAILABLE, ZERO).compareTo(value) < 0 ) {
 			Context.revert("Out of available balance");
 		}
 
@@ -431,8 +431,8 @@ public class TapToken implements IRC2{
 		this.balances.set(to, balanceTo.add(value));
 		Context.println("new balance of 'to' ( "+ to +"): " + this.balances.get(to));
 
-		sbFrom.set(Status.AVAILABLE, sbFrom.get(Status.AVAILABLE).subtract(value) );
-		sbTo.set(Status.AVAILABLE, sbTo.get(Status.AVAILABLE).add(value));
+		sbFrom.set(Status.AVAILABLE, sbFrom.getOrDefault(Status.AVAILABLE, ZERO).subtract(value) );
+		sbTo.set(Status.AVAILABLE, sbTo.getOrDefault(Status.AVAILABLE, ZERO).add(value));
 
 		if ( !containsInArrayDb(to, this.addresses ) ){
 			this.addresses.add(to);
