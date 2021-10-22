@@ -1,6 +1,7 @@
 package com.iconbet.score.tap;
 
 import static java.math.BigInteger.ZERO;
+import static java.math.BigInteger.TEN;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ public class TapToken implements IRC2{
 	protected static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
 
 	public static final String TAG = "TapToken";
-	//TODO: verify this value exists as long and not as biginteger
+
 	private static final long DAY_TO_MICROSECOND = 86_400_000_000l;
 	private static final String BALANCES = "balances";
 	private static final String TOTAL_SUPPLY = "total_supply";
@@ -85,6 +86,7 @@ public class TapToken implements IRC2{
 	//TODO : Example 2) Two-depth dict (test_dict2[‘key1’][‘key2’]): 
 	//lets dig into how it is used self._STAKED_BALANCES, db, value_type=int, depth=2
 	//verify if BranchDB can support multiples Dicdb keys like thousands, else we will need to go back to old impl or even a tricky data structure impl
+	//let's check also if this is a valid convertion from Two-depth dict py to branch db java class when updating from py to java
 	private final BranchDB<Address, DictDB<Integer,BigInteger>> stakedBalances = Context.newBranchDB(STAKED_BALANCES, BigInteger.class);
 	private final VarDB<BigInteger> minimumStake = Context.newVarDB(MINIMUM_STAKE, BigInteger.class);
 	private final VarDB<BigInteger> unstakingPeriod = Context.newVarDB(UNSTAKING_PERIOD, BigInteger.class);
@@ -112,23 +114,33 @@ public class TapToken implements IRC2{
 	private final ArrayDB<Address> pauseWhitelist = Context.newArrayDB(PAUSE_WHITELIST, Address.class);
 	private final ArrayDB<Address> locklist = Context.newArrayDB(LOCKLIST, Address.class);
 
+
+	//TODO:this var must exists in py tap-token score before updating from py to java
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+
 	public TapToken(BigInteger _initialSupply, BigInteger _decimals) {
-		if (_initialSupply == null || _initialSupply.compareTo(BigInteger.ZERO) < 0) {
+		//we mimic on_update py feature, updating java score will call <init> (constructor) method 
+		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+			onUpdate();
+			return;
+		}
+
+		if (_initialSupply == null || _initialSupply.compareTo(ZERO) < 0) {
 			Context.revert("Initial supply cannot be less than zero");
 		}
 
-		if (_decimals == null || _decimals.compareTo(BigInteger.ZERO) < 0) {
+		if (_decimals == null || _decimals.compareTo(ZERO) < 0) {
 			Context.revert("Decimals cannot be less than zero");
 		}
 
-		//TODO: make sure iconbet do not want decimals a biginteger like 2^2147483647 decimals
-		BigInteger totalSupply = _initialSupply.multiply( pow( BigInteger.TEN , _decimals.intValue()) );
+		BigInteger totalSupply = _initialSupply.multiply( pow( TEN , _decimals.intValue()) );
 		Context.println(TAG+" : total_supply "+ totalSupply );
 
 		this.totalSupply.set(totalSupply);
 		this.decimals.set(_decimals);
 		this.balances.set(Context.getOwner(), totalSupply);
 		this.addresses.add(Context.getOwner());
+		this.onUpdate.set(true);
 
 	}
 
@@ -145,9 +157,16 @@ public class TapToken implements IRC2{
 	@EventLog(indexed=1)
 	protected void BlacklistAddress(Address address, String note){}
 
-	//TODO: not sure where it should live, perhaps we should test the update scenario locally and see what happens
-	//from py docs: Invoked when the contract is deployed for update This is the place where you migrate old states.
-	//def on_update(self) -> None:
+	public void onUpdate() {
+		Context.println("calling on update. "+TAG);
+		this.stakingEnabled.set(false);
+		this.switchDivsToStakedTapEnabled.set(false);
+		this.paused.set(false);
+		this.indexUpdateStake.set(ZERO);
+		this.indexStakeAddressChanges.set(ZERO);
+		this.stakeUpdateDb.set(ZERO);
+		this.stakeAddressUpdateDb.set(0);
+	}
 
 	@External
 	public void untether() {
@@ -180,20 +199,20 @@ public class TapToken implements IRC2{
 	@External(readonly=true)
 	public int decimals() {
 		return this.decimals
-				.getOrDefault(BigInteger.ZERO)
+				.getOrDefault(ZERO)
 				.intValue();
 	}
 
 	@Override
 	@External(readonly=true)
 	public BigInteger totalSupply() {
-		return this.totalSupply.getOrDefault(BigInteger.ZERO);
+		return this.totalSupply.getOrDefault(ZERO);
 	}
 
 	@Override
 	@External(readonly=true)
 	public BigInteger balanceOf(Address _owner) {
-		return this.balances.getOrDefault(_owner, BigInteger.ZERO);
+		return this.balances.getOrDefault(_owner, ZERO);
 	}
 
 	@External(readonly=true)
@@ -202,13 +221,13 @@ public class TapToken implements IRC2{
 		if(detailBalance.containsKey("Available balance")) {
 			return detailBalance.get("Available balance");
 		}else {
-			return BigInteger.ZERO;
+			return ZERO;
 		}
 	}
 
 	@External(readonly=true)
 	public BigInteger staked_balanceOf(Address _owner) {
-		return this.stakedBalances.at(_owner).getOrDefault(Status.STAKED, BigInteger.ZERO);
+		return this.stakedBalances.at(_owner).getOrDefault(Status.STAKED, ZERO);
 	}
 
 	@External(readonly=true)
@@ -217,13 +236,13 @@ public class TapToken implements IRC2{
 		if(detailBalance.containsKey("Unstaking balance")) {
 			return detailBalance.get("Unstaking balance");
 		}else {
-			return BigInteger.ZERO;
+			return ZERO;
 		}
 	}
 
 	@External(readonly=true)
 	public BigInteger total_staked_balance() {
-		return this.totalStakedBalance.getOrDefault(BigInteger.ZERO);
+		return this.totalStakedBalance.getOrDefault(ZERO);
 	}
 
 	@External(readonly=true)
@@ -241,12 +260,11 @@ public class TapToken implements IRC2{
 		return this.paused.getOrDefault(false);
 	}
 
-	//TODO:honor method name convention as snake
 	@External(readonly=true)
 	public Map<String, BigInteger> details_balanceOf(Address _owner) {
 
 		//Context.getBlockTimestamp() -- > self.now()
-		BigInteger currUnstaked = BigInteger.ZERO;
+		BigInteger currUnstaked = ZERO;
 		DictDB<Integer, BigInteger> sb = this.stakedBalances.at(_owner);
 		if (sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO).compareTo( BigInteger.valueOf(Context.getBlockTimestamp())) < 0 ) {
 			currUnstaked = sb.getOrDefault(Status.UNSTAKING, ZERO);
@@ -265,13 +283,13 @@ public class TapToken implements IRC2{
 			unstakingAmount = unstakingAmount.subtract(currUnstaked);
 		}
 
-		BigInteger unstakingTime = BigInteger.ZERO;
+		BigInteger unstakingTime = ZERO;
 		if ( !unstakingAmount.equals(ZERO)) {
 			unstakingTime = sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO);
 		}
 
 		return Map.of(
-				"Total balance", this.balances.getOrDefault(_owner, BigInteger.ZERO),
+				"Total balance", this.balances.getOrDefault(_owner, ZERO),
 				"Available balance", availableBalance.add(currUnstaked),
 				"Staked balance", sb.getOrDefault(Status.STAKED, ZERO),
 				"Unstaking balance", unstakingAmount,
@@ -285,13 +303,13 @@ public class TapToken implements IRC2{
 				ZERO.equals( sb.getOrDefault(Status.AVAILABLE, ZERO))
 				&& ZERO.equals( sb.getOrDefault(Status.STAKED, ZERO))
 				&& ZERO.equals(sb.getOrDefault(Status.UNSTAKING, ZERO))
-				&& this.balances.getOrDefault(from, BigInteger.ZERO).compareTo(BigInteger.ZERO) != 0;
+				&& this.balances.getOrDefault(from, ZERO).compareTo(ZERO) != 0;
 	}
 
 	private void checkFirstTime(Address from) {
 		//If first time copy the balance to available staked balances
 		if (this.firstTime(from)){
-			this.stakedBalances.at(from).set(Status.AVAILABLE, this.balances.getOrDefault(from, BigInteger.ZERO));
+			this.stakedBalances.at(from).set(Status.AVAILABLE, this.balances.getOrDefault(from, ZERO));
 		}
 	}
 
@@ -335,17 +353,17 @@ public class TapToken implements IRC2{
 		if( _value == null) {
 			Context.revert("Staked TAP value can't be less than zero");
 		}
-		if (_value.compareTo(BigInteger.ZERO) < 0) {
+		if (_value.compareTo(ZERO) < 0) {
 			Context.revert("Staked TAP value can't be less than zero");
 		}
 
 		if (_value.compareTo(
-				this.balances.getOrDefault(from, BigInteger.ZERO) ) > 0 ) {
+				this.balances.getOrDefault(from, ZERO) ) > 0 ) {
 			Context.revert("Out of TAP balance");
 		}
 
-		if (_value.compareTo(this.minimumStake.getOrDefault(BigInteger.ZERO)) < 0
-				&& _value.compareTo(BigInteger.ZERO) != 0) {
+		if (_value.compareTo(this.minimumStake.getOrDefault(ZERO)) < 0
+				&& _value.compareTo(ZERO) != 0) {
 			Context.revert("Staked TAP must be greater than the minimum stake amount and non zero");
 		}
 		this.checkFirstTime(from);
@@ -362,7 +380,7 @@ public class TapToken implements IRC2{
 		BigInteger newStake = _value;
 
 		BigInteger stakeIncrement = _value.subtract( sb.getOrDefault(Status.STAKED, ZERO));
-		BigInteger unstakeAmount = BigInteger.ZERO;
+		BigInteger unstakeAmount = ZERO;
 		if (newStake.compareTo(oldStake) > 0 ) {
 			BigInteger offset = newStake.subtract(oldStake);
 			sb.set(Status.AVAILABLE, sb.get(Status.AVAILABLE).subtract(offset));
@@ -373,8 +391,8 @@ public class TapToken implements IRC2{
 		sb.set(Status.STAKED, _value);
 		sb.set(Status.UNSTAKING, unstakeAmount);
 		sb.set(Status.UNSTAKING_PERIOD, BigInteger.valueOf( Context.getBlockTimestamp())
-				.add( this.unstakingPeriod.getOrDefault(BigInteger.ZERO)));
-		this.totalStakedBalance.set(this.totalStakedBalance.getOrDefault(BigInteger.ZERO).add(stakeIncrement));
+				.add( this.unstakingPeriod.getOrDefault(ZERO)));
+		this.totalStakedBalance.set(this.totalStakedBalance.getOrDefault(ZERO).add(stakeIncrement));
 
 		ArrayDB<Address> stakeAddressChanges = this.stakeChanges.get(this.stakeAddressUpdateDb.getOrDefault(0));
 		stakeAddressChanges.add(from);
@@ -404,11 +422,11 @@ public class TapToken implements IRC2{
 	private void _transfer(Address from, Address to, BigInteger value, byte[] data) {
 
 		// Checks the sending value and balance.
-		if (value == null || value.compareTo(BigInteger.ZERO) < 0) {
+		if (value == null || value.compareTo(ZERO) < 0) {
 			Context.revert("Transferring value cannot be less than zero");
 		}
 
-		BigInteger balanceFrom = this.balances.getOrDefault(from, BigInteger.ZERO);
+		BigInteger balanceFrom = this.balances.getOrDefault(from, ZERO);
 		if ( balanceFrom.compareTo(value) < 0) {
 			Context.revert("Out of balance");
 		}
@@ -427,7 +445,7 @@ public class TapToken implements IRC2{
 
 		this.balances.set(from, balanceFrom.subtract(value));
 
-		BigInteger balanceTo = this.balances.getOrDefault(to, BigInteger.ZERO);
+		BigInteger balanceTo = this.balances.getOrDefault(to, ZERO);
 		this.balances.set(to, balanceTo.add(value));
 		Context.println("new balance of 'to' ( "+ to +"): " + this.balances.get(to));
 
@@ -481,7 +499,7 @@ public class TapToken implements IRC2{
 
 		if ( sb.getOrDefault(Status.UNSTAKING_PERIOD, ZERO).compareTo( BigInteger.valueOf(Context.getBlockTimestamp()) ) <= 0 ) {
 			BigInteger currUnstaked = sb.getOrDefault(Status.UNSTAKING, ZERO);
-			sb.set(Status.UNSTAKING, BigInteger.ZERO);
+			sb.set(Status.UNSTAKING, ZERO);
 			sb.set(Status.AVAILABLE, sb.getOrDefault(Status.AVAILABLE, ZERO).add(currUnstaked));
 		}
 	}
@@ -493,12 +511,11 @@ public class TapToken implements IRC2{
         :param _amount: Minimum amount of stake needed.
 		 */
 		this.ownerOnly();
-		if ( _amount == null || _amount.compareTo(BigInteger.ZERO) < 0) {
+		if ( _amount == null || _amount.compareTo(ZERO) < 0) {
 			Context.revert("Amount cannot be less than zero");
 		}
 
-		//TODO: verify this operation
-		BigInteger totalAmount = pow(_amount , this.decimals.getOrDefault(BigInteger.ONE).intValue());
+		BigInteger totalAmount = _amount.multiply(pow(TEN, this.decimals.get().intValue()));
 		this.minimumStake.set(totalAmount);
 	}
 
@@ -511,7 +528,7 @@ public class TapToken implements IRC2{
 	public void set_unstaking_period(BigInteger _time){
 
 		this.ownerOnly();
-		if (_time == null || _time.compareTo(BigInteger.ZERO) < 0 ) {
+		if (_time == null || _time.compareTo(ZERO) < 0 ) {
 			Context.revert("Time cannot be negative.");
 		}
 		BigInteger totalTime = _time.multiply( BigInteger.valueOf(DAY_TO_MICROSECOND));  // convert days to microseconds
@@ -589,20 +606,20 @@ public class TapToken implements IRC2{
 	@External
 	public Map<String, BigInteger> get_balance_updates() {
 		this.dividendsOnly();
-		ArrayDB<Address> balanceChanges = this.changes.get(this.balanceUpdateDb.getOrDefault(BigInteger.ZERO).intValue());
+		ArrayDB<Address> balanceChanges = this.changes.get(this.balanceUpdateDb.getOrDefault(ZERO).intValue());
 
 		int lengthList = balanceChanges.size();
 
-		int start = this.indexUpdateBalance.getOrDefault(BigInteger.ZERO).intValue();
+		int start = this.indexUpdateBalance.getOrDefault(ZERO).intValue();
 		if (start == lengthList){
-			if (this.balanceUpdateDb.getOrDefault(BigInteger.ZERO).intValue() != this.addressUpdateDb.getOrDefault(0) ) {
+			if (this.balanceUpdateDb.getOrDefault(ZERO).intValue() != this.addressUpdateDb.getOrDefault(0) ) {
 				this.balanceUpdateDb.set(BigInteger.valueOf(this.addressUpdateDb.get()));
-				this.indexUpdateBalance.set(this.indexAddressChanges.getOrDefault(BigInteger.ZERO));
+				this.indexUpdateBalance.set(this.indexAddressChanges.getOrDefault(ZERO));
 			}
 			return Map.of();
 		}
 
-		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
+		int end = Math.min(start + this.maxLoop.getOrDefault(ZERO).intValue(), lengthList);
 
 		@SuppressWarnings("unchecked")
 		Map.Entry<String, BigInteger>[] entries = new Map.Entry[end-start];
@@ -630,7 +647,7 @@ public class TapToken implements IRC2{
 			return true;
 		}
 
-		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(BigInteger.ZERO).intValue());
+		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(ZERO).intValue());
 		for (int i= 0; i<loopCount; i++) {
 			yesterdaysChanges.pop();
 		}
@@ -719,19 +736,19 @@ public class TapToken implements IRC2{
 		this.stakingEnabledOnly();
 		this.switchDivsToStakedTapEnabledOnly();
 
-		ArrayDB<Address> stakeChanges = this.stakeChanges.get(this.stakeUpdateDb.getOrDefault(BigInteger.ZERO).intValue());
+		ArrayDB<Address> stakeChanges = this.stakeChanges.get(this.stakeUpdateDb.getOrDefault(ZERO).intValue());
 		int lengthList = stakeChanges.size();
 
-		int start = this.indexUpdateStake.getOrDefault(BigInteger.ZERO).intValue();
+		int start = this.indexUpdateStake.getOrDefault(ZERO).intValue();
 		if (start == lengthList) {
-			if (this.stakeUpdateDb.getOrDefault(BigInteger.ZERO).intValue() != 
+			if (this.stakeUpdateDb.getOrDefault(ZERO).intValue() != 
 					this.stakeAddressUpdateDb.getOrDefault(0)) {
 				this.stakeUpdateDb.set(BigInteger.valueOf(this.stakeAddressUpdateDb.getOrDefault(0)));
-				this.indexUpdateStake.set(this.indexStakeAddressChanges.getOrDefault(BigInteger.ZERO));
+				this.indexUpdateStake.set(this.indexStakeAddressChanges.getOrDefault(ZERO));
 			}
 			return Map.of();
 		}
-		int end = Math.min(start + this.maxLoop.getOrDefault(BigInteger.ZERO).intValue(), lengthList);
+		int end = Math.min(start + this.maxLoop.getOrDefault(ZERO).intValue(), lengthList);
 
 		@SuppressWarnings("unchecked")
 		Map.Entry<String, BigInteger>[] entries = new Map.Entry[end-start];
@@ -756,7 +773,7 @@ public class TapToken implements IRC2{
 		if (lengthList == 0) {
 			return true;
 		}
-		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(BigInteger.ZERO).intValue());
+		int loopCount = Math.min(lengthList, this.maxLoop.getOrDefault(ZERO).intValue());
 		for (int i=0 ;i < loopCount; i++) {
 			yesterdaysChanges.pop();
 		}
@@ -830,14 +847,14 @@ public class TapToken implements IRC2{
 		// Unstake TAP of locklist address
 
 		BigInteger stakedBalance = this.stakedBalances.at(_address).getOrDefault(Status.STAKED, ZERO);
-		if (stakedBalance.compareTo(BigInteger.ZERO) > 0) {
+		if (stakedBalance.compareTo(ZERO) > 0) {
 			// Check if the unstaking period has already been reached.
 			this.makeAvailable(_address);
 			DictDB<Integer, BigInteger> sb = this.stakedBalances.at(_address);
-			sb.set(Status.STAKED, BigInteger.ZERO);
+			sb.set(Status.STAKED, ZERO);
 			sb.set(Status.UNSTAKING, sb.get(Status.UNSTAKING).add(stakedBalance));
 			sb.set(Status.UNSTAKING_PERIOD, this.unstakingPeriod.get().add(BigInteger.valueOf(Context.getBlockTimestamp())));
-			this.totalStakedBalance.set( this.totalStakedBalance.getOrDefault(BigInteger.ZERO).subtract(stakedBalance ));
+			this.totalStakedBalance.set( this.totalStakedBalance.getOrDefault(ZERO).subtract(stakedBalance ));
 			ArrayDB<Address> stakeAddressChanges = this.stakeChanges.get(this.stakeAddressUpdateDb.get());
 			stakeAddressChanges.add(_address);
 		}

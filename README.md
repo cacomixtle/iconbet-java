@@ -10,3 +10,5 @@ You should already have a wallet created and a goloop node running locally
 
 `./gradlew clean build daodice-score:optimizedJar daodice-score:deployToLocal -PkeystoreName=wallet.json -PkeystorePass=gochain`
 
+### run integration tests
+`./gradlew clean daolette-game:integrationTest --info`
