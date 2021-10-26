@@ -146,7 +146,7 @@ public class TapToken implements IRC2{
 
 	@Override
 	@EventLog(indexed=3)
-	public void Transfer( Address from, Address to, BigInteger value, byte[] data) {}
+	public void Transfer( Address _from, Address _to, BigInteger _value, byte[] _data) {}
 
 	@EventLog(indexed=1)
 	protected void LocklistAddress(Address address, String note) {}
