@@ -14,6 +14,7 @@ dependencies {
 	//testImplementation project(':tap-token')
 	testImplementation project(':testinteg')
 	testImplementation 'foundation.icon:icon-sdk:2.0.0'
+	testImplementation 	'com.fasterxml.jackson.core:jackson-databind:2.9.6'
 }
 
 optimizedJar {

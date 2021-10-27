@@ -33,7 +33,7 @@ class AuthorizationTest extends TestBase {
 
 	@BeforeEach
 	void setup() throws Exception {
-		//authorization = sm.deploy(owner, Authorization.class);
+		authorization = sm.deploy(owner, Authorization.class);
 	}
 
 	@Test

@@ -44,6 +44,11 @@ class TapTokenStakeTest extends TestBase{
 		Account alice = sm.createAccount();
 		BigInteger value = BigInteger.TEN.pow(decimals.intValue());
 
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
+
 		tapToken.invoke(owner, "transfer", alice.getAddress(), value, "to alice".getBytes());
 		owner.subtractBalance(symbol, value);
 

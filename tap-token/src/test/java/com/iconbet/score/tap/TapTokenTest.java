@@ -75,6 +75,11 @@ class TapTokenTest extends TestBase {
 		Account alice = sm.createAccount();
 		BigInteger value = TEN.pow(decimals.intValue());
 
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
+
 		tapToken.invoke(owner, "transfer", alice.getAddress(), value, "to alice".getBytes());
 		owner.subtractBalance(symbol, value);
 
@@ -90,9 +95,10 @@ class TapTokenTest extends TestBase {
 
 	@Test
 	void togglePaused() {
-		assertFalse((Boolean)tapToken.call("getPaused"));
+		Boolean paused = (Boolean)tapToken.call("getPaused");
 		tapToken.invoke(owner, "togglePaused");
-		assertTrue((Boolean)tapToken.call("getPaused"));
+		Boolean pausedAfter = (Boolean)tapToken.call("getPaused");
+		assertEquals(pausedAfter, !paused);
 	}
 
 	@Test
@@ -100,7 +106,11 @@ class TapTokenTest extends TestBase {
 		Account alice = sm.createAccount();
 		BigInteger value = TEN.pow(decimals.intValue());
 
-		tapToken.invoke(owner, "togglePaused");
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(!paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
+
 		Address a = alice.getAddress();
 		byte[] data = "to alice".getBytes();
 		AssertionError e = Assertions.assertThrows(AssertionError.class, () -> {
@@ -150,6 +160,11 @@ class TapTokenTest extends TestBase {
 	void testTransferFailByLockList() {
 		Account alice = sm.createAccount();
 		Address a = alice.getAddress();
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
+
 		tapToken.invoke(owner, "toggle_staking_enabled");
 		tapToken.invoke(owner, "set_locklist_address", a);
 
@@ -167,6 +182,11 @@ class TapTokenTest extends TestBase {
 		Account alice = sm.createAccount();
 		Address a = alice.getAddress();
 
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
+
 		BigInteger value = BigInteger.valueOf(-1);
 		byte[] data = "to alice".getBytes();
 		AssertionError e = Assertions.assertThrows(AssertionError.class, () -> {
@@ -180,6 +200,11 @@ class TapTokenTest extends TestBase {
 	void testTransferOutOfBalance() {
 		Account alice = sm.createAccount();
 		Address a = alice.getAddress();
+
+		Boolean paused = (Boolean)tapToken.call("getPaused");
+		if(paused) {
+			tapToken.invoke(owner, "togglePaused");
+		}
 
 		BigInteger value = TEN.pow(decimals.intValue());
 		byte[] data = "to alice".getBytes();
