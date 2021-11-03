@@ -83,7 +83,7 @@ class TapTokenIT extends TestBase{
 		//  38,802846750000000000 ICX cost of update
 		RpcItem ts = tapToken.call("totalSupply", new RpcObject.Builder().build());
 		System.out.println("total supply:"+ts);
-		
+
 		BigInteger steps = BigInteger.valueOf(100_000).add( BigInteger.valueOf(30110 * 200 )).add(BigInteger.valueOf(30110 * 30_000)).add(BigInteger.valueOf(1_600_000_000));
 		System.out.println("calculated steps for updating score: "+steps);
 		tapToken = txHandler.deploy(ownerWallet, Score.getFilePath("tap-token"),

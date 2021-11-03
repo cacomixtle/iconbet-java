@@ -41,9 +41,10 @@ public class Daolette{
 	private static final List<Integer> SET_ODD = List.of(1, 3, 5, 7, 9, 11, 13, 15, 17, 19);
 	private static final List<Integer> WHEEL_EVEN = List.of(2,4,6,8,10,12,14,16,18,20);
 	private static final List<Integer> SET_EVEN = List.of(2, 4, 6, 8, 10, 12, 14, 16, 18, 20);
-	private static final Map<String, Float> MULTIPLIERS = Map.of("bet_on_color", 2f,
-			"bet_on_even_odd", 2f,
-			"bet_on_number", 20f,
+	private static final Map<String, Number> MULTIPLIERS = Map.of(
+			"bet_on_color", 2,
+			"bet_on_even_odd", 2,
+			"bet_on_number", 20,
 			"number_factor", 20.685f);
 
 	private static String _EXCESS = "house_excess";
@@ -994,7 +995,7 @@ public class Daolette{
 		}
 		BigInteger payout;
 		if (betType.equals(BET_TYPES[1])){
-			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]) * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
+			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]).floatValue() * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
 		}else {
 			payout = BigInteger.valueOf( MULTIPLIERS.get(betType).longValue()).multiply(amount);
 		}

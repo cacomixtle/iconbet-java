@@ -64,6 +64,7 @@ class RewardDistributionIT extends TestBase{
 
 	@AfterAll
 	static void shutdown() throws Exception {
+
 		for (KeyWallet wallet : wallets) {
 			txHandler.refundAll(wallet);
 		}
@@ -77,7 +78,10 @@ class RewardDistributionIT extends TestBase{
 	void testGetTodaysTapDistribution() throws IOException, ResultTimeoutException {
 		assertNotNull(reward);
 		assertNotNull(tapToken);
-
+		RpcItem paused = tapToken.call("getPaused", new RpcObject.Builder().build());
+		if(paused.asBoolean()) {
+			tapToken.invokeAndWaitResult(chain.godWallet, "togglePaused", new RpcObject.Builder().build());
+		}
 		reward.invokeAndWaitResult(chain.godWallet, "set_token_score",
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(tapToken.getAddress()))

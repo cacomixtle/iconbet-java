@@ -43,10 +43,10 @@ public class DaoletteGame {
 
 	private static final List<Integer> SET_EVEN = List.of( 2, 4, 6, 8, 10, 12, 14, 16, 18, 20);
 
-	private static final Map<String, Float> MULTIPLIERS = Map.of(
-			"bet_on_color", 2f,
-			"bet_on_even_odd", 2f,
-			"bet_on_number", 20f,
+	private static final Map<String, Number> MULTIPLIERS = Map.of(
+			"bet_on_color", 2,
+			"bet_on_even_odd", 2,
+			"bet_on_number", 20,
 			"number_factor", 20.685f);
 
 	private String _GAME_ON = "game_on";
@@ -328,7 +328,7 @@ public class DaoletteGame {
 
 		BigInteger payout;
 		if (bet_type.equals(BET_TYPES[1])){
-			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]) * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
+			payout = BigInteger.valueOf( (int)(MULTIPLIERS.get(BET_TYPES[5]).floatValue() * 1000) ).multiply(amount).divide(BigInteger.valueOf(1000l * numbers.size()));
 		}else {
 			payout = BigInteger.valueOf( MULTIPLIERS.get(bet_type).longValue()).multiply(amount);
 		}
@@ -377,7 +377,11 @@ public class DaoletteGame {
 	public <K,V> String mapToJsonString(Map<K, V > map) {
 		StringBuilder sb = new StringBuilder("{");
 		for (Map.Entry<K, V> entry : map.entrySet()) {
-			sb.append("\""+entry.getKey()+"\":\""+entry.getValue()+"\",");
+			if(entry.getValue() instanceof Number) {
+				sb.append("\""+entry.getKey()+"\":"+entry.getValue()+",");
+			}else {
+				sb.append("\""+entry.getKey()+"\":\""+entry.getValue()+"\",");
+			}
 		}
 		char c = sb.charAt(sb.length()-1);
 		if(c == ',') {
