@@ -11,6 +11,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 public class Daolette{
@@ -114,6 +115,42 @@ public class Daolette{
 	private VarDB<BigInteger> _yesterdays_excess = Context.newVarDB(_YESTERDAYS_EXCESS, BigInteger.class);
 	private VarDB<BigInteger> _daofund_to_distirbute = Context.newVarDB(_DAOFUND_TO_DISTRIBUTE, BigInteger.class);
 
+	private static final String PAUSED = "paused";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+
+	public Daolette() {
+		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+			onUpdate();
+			return;
+		}
+		Context.println("In __init__. "+ TAG);
+		Context.println("owner is "+Context.getOwner()+". "+TAG);
+
+		this._excess.set(BigInteger.ZERO);
+		this._total_distributed.set(BigInteger.ZERO);
+		this._game_on.set(false);
+		this._bet_type.set(BET_TYPES[0]);
+		this._treasury_min.set(TREASURY_MINIMUM);
+		this._set_bet_limit();
+		this._day.set(BigInteger.valueOf(Context.getTransactionTimestamp()).divide(U_SECONDS_DAY));
+		this._skipped_days.set(BigInteger.ZERO);
+		this._total_bet_count.set(BigInteger.ZERO);
+		this._daily_bet_count.set(BigInteger.ZERO);
+		this._yesterdays_bet_count.set(BigInteger.ZERO);
+		this._yes_votes.set(BigInteger.ZERO);
+		this._no_votes.set(BigInteger.ZERO);
+		this._open_treasury.set(false);
+		this._game_auth_score.set(ZERO_ADDRESS);
+		this._excess_smoothing_live.set(false);
+
+		this.onUpdate.set(true);
+
+	}
+
+	public void onUpdate() {
+		Context.println("calling on update. "+TAG);
+	}
+
 	@EventLog(indexed=2)
 	public void FundTransfer(Address recipient, BigInteger amount, String note) {}
 
@@ -134,28 +171,6 @@ public class Daolette{
 
 	@EventLog(indexed=2)
 	public void Vote(Address _from, String _vote, String note){}
-
-	public Daolette() {
-		Context.println("In __init__. "+ TAG);
-		Context.println("owner is "+Context.getOwner()+". "+TAG);
-
-		this._excess.set(BigInteger.ZERO);
-		this._total_distributed.set(BigInteger.ZERO);
-		this._game_on.set(false);
-		this._bet_type.set(BET_TYPES[0]);
-		this._treasury_min.set(TREASURY_MINIMUM);
-		this._set_bet_limit();
-		this._day.set(BigInteger.valueOf(Context.getTransactionTimestamp()).divide(U_SECONDS_DAY));
-		this._skipped_days.set(BigInteger.ZERO);
-		this._total_bet_count.set(BigInteger.ZERO);
-		this._daily_bet_count.set(BigInteger.ZERO);
-		this._yesterdays_bet_count.set(BigInteger.ZERO);
-		this._yes_votes.set(BigInteger.ZERO);
-		this._no_votes.set(BigInteger.ZERO);
-		this._open_treasury.set(false);
-		this._game_auth_score.set(ZERO_ADDRESS);
-		this._excess_smoothing_live.set(false);
-	}
 
 	@External
 	public void toggle_excess_smoothing() {
@@ -639,7 +654,11 @@ public class Daolette{
 	 */
 	@External
 	@Payable
-	public void bet_on_numbers(String numbers, String user_seed) {
+	public void bet_on_numbers(String numbers, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
 
 		//TODO: validate well-formed string
 		String[] array = StringUtils.split(numbers, ',');
@@ -665,7 +684,12 @@ public class Daolette{
 	 */
 	@External
 	@Payable
-	public void bet_on_color(boolean color, String user_seed) {
+	public void bet_on_color(boolean color, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
+
 		this._bet_type.set(BET_TYPES[2]);
 		List<Integer> numbers;
 		if (color) {
@@ -686,7 +710,12 @@ public class Daolette{
 	 */
 	@External
 	@Payable
-	public void bet_on_even_odd(boolean even_odd, String user_seed) {
+	public void bet_on_even_odd(boolean even_odd, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
+
 		this._bet_type.set(BET_TYPES[3]);
 		List<Integer> numbers;
 		if (even_odd) {
@@ -819,6 +848,9 @@ public class Daolette{
     :rtype: float
 	 */
 	public double get_random(String userSeed) {
+		if( userSeed == null) {
+			userSeed = "";
+		}
 		Context.println("Entered get_random. "+ TAG);
 		double spin;
 		String seed = encodeHexString(Context.getTransactionHash()) + String.valueOf(Context.getBlockTimestamp()) + userSeed;

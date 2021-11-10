@@ -16,6 +16,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 
 public class TapToken implements IRC2{
 	protected static final Address ZERO_ADDRESS = new Address(new byte[Address.LENGTH]);
@@ -140,6 +141,7 @@ public class TapToken implements IRC2{
 		this.decimals.set(_decimals);
 		this.balances.set(Context.getOwner(), totalSupply);
 		this.addresses.add(Context.getOwner());
+
 		this.onUpdate.set(true);
 
 	}
@@ -159,13 +161,6 @@ public class TapToken implements IRC2{
 
 	public void onUpdate() {
 		Context.println("calling on update. "+TAG);
-		this.stakingEnabled.set(false);
-		this.switchDivsToStakedTapEnabled.set(false);
-		this.paused.set(false);
-		this.indexUpdateStake.set(ZERO);
-		this.indexStakeAddressChanges.set(ZERO);
-		this.stakeUpdateDb.set(ZERO);
-		this.stakeAddressUpdateDb.set(0);
 	}
 
 	@External
@@ -541,7 +536,7 @@ public class TapToken implements IRC2{
     :return:
 	 */
 	@External
-	public void set_max_loop(BigInteger _loops) {
+	public void set_max_loop(@Optional BigInteger _loops) {
 		if(_loops == null) {
 			_loops = BigInteger.valueOf(100L);
 		}

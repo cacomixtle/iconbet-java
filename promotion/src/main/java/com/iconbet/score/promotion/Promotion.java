@@ -33,8 +33,22 @@ public class Promotion {
 	public VarDB<Address> _dividends_score = Context.newVarDB(this._DIVIDENDS_SCORE, Address.class);
 	public VarDB<BigInteger> _total_prizes = Context.newVarDB(this._TOTAL_PRIZES, BigInteger.class);
 
+	private static final String PAUSED = "paused";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+
 	public Promotion(){
+		//we mimic on_update py feature, updating java score will call <init> (constructor) method 
+		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+			onUpdate();
+			return;
+		}
 		this._total_prizes.set(ZERO);
+
+		this.onUpdate.set(true);
+	}
+
+	public void onUpdate() {
+		Context.println("calling on update. "+TAG);
 	}
 
 	@EventLog(indexed=2)

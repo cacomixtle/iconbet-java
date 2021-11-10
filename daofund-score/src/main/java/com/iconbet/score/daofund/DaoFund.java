@@ -15,39 +15,46 @@ import score.annotation.External;
 import score.annotation.Payable;
 
 public class DaoFund {
-	
+
 	public static final String TAG = "ICONbet DAOfund";
-	
-    private static final String ADMINS = "admins";
-    private static final String WITHDRAW_COUNT = "withdraw_count";
-    private static final String WITHDRAW_RECORD = "withdraw_record";
-    private static final BigInteger X_6 = new BigInteger("1000000"); // 10 ** 6
-    private static final BigInteger BATCH_SIZE = BigInteger.valueOf(100L);
-    
+
+	private static final String ADMINS = "admins";
+	private static final String WITHDRAW_COUNT = "withdraw_count";
+	private static final String WITHDRAW_RECORD = "withdraw_record";
+	private static final BigInteger X_6 = new BigInteger("1000000"); // 10 ** 6
+	private static final BigInteger BATCH_SIZE = BigInteger.valueOf(100L);
+
 
 	private final ArrayDB<Address> admins = Context.newArrayDB(ADMINS, Address.class);
 	private final VarDB<BigInteger> withdraw_count = Context.newVarDB(WITHDRAW_COUNT, BigInteger.class);
 	private final BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
 
+	private static final String PAUSED = "paused";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
 
-	
-	/***
-	  def on_update(self) -> None:
-	        super().on_update()
-	        self.admins.put(self.owner)
-	        self.withdraw_count.set(0)
-	 * @param <T>
-	  ***/
-	
-	
+	public DaoFund() {
+		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+			onUpdate();
+			return;
+		}
+		Context.println("In __init__. "+ TAG);
+
+		this.onUpdate.set(true);
+
+	}
+
+	public void onUpdate() {
+		Context.println("calling on update. "+TAG);
+	}
+
 	private <T> boolean remove_array_item( ArrayDB<T> arraydb, T target) {
-		
+
 		T _out = arraydb.get(-1);
 		if (_out!= null && _out.equals(target)) {
 			arraydb.pop();
 			return Boolean.TRUE;
 		}
-		
+
 		for (int i=0; i<arraydb.size()-1; i++ ) {
 			T value = arraydb.get(i);
 			if ( value.equals(target)) {
@@ -56,21 +63,18 @@ public class DaoFund {
 				return Boolean.TRUE;
 			}
 		}
-		
+
 		return Boolean.FALSE;		
 	}
-		
 
-
+	/***
+	:return: name of the Score
+	 ***/
 	@External(readonly = true)
 	public String name() {
-		/***
-		:return: name of the Score
-		***/
-		
 		return TAG;
 	}
-	
+
 	@External
 	public void add_admin(Address _admin) {
 		Address sender = Context.getCaller();
@@ -78,16 +82,16 @@ public class DaoFund {
 		if (!sender.equals(owner)) {
 			Context.revert(TAG + ": Only admins can set new admins.");
 		}
-		
+
 		if (!containsInArrayDb(_admin, this.admins)) {
 			this.admins.add(_admin);
 			AdminAdded(_admin);
-			
+
 		}else {
 			Context.revert(TAG + ":  "+ _admin +" is already on admin list.");
 		}
 	}
-	
+
 	@External
 	public void remove_admin(Address _admin) {
 		Address sender = Context.getCaller();
@@ -95,11 +99,11 @@ public class DaoFund {
 		if (!sender.equals(owner)) {
 			Context.revert(TAG + ": Only admins can remove admins.");
 		}
-		
+
 		if (_admin.equals(owner)) {
 			Context.revert(TAG + ": Owner address cannot be removed from the admins list.");
 		}
-		
+
 		if (containsInArrayDb(_admin, this.admins)) {
 			remove_array_item(this.admins, _admin);
 			AdminRemoved(_admin);
@@ -107,10 +111,10 @@ public class DaoFund {
 			Context.revert(TAG + ":  "+ _admin +" not in Admins List");
 		}
 	}
-	
+
 	@External(readonly = true)
 	public List<Address> get_admins() {
-		
+
 		Address[] addressList = new Address[this.admins.size()];
 
 		for (int i=0; i< this.admins.size(); i++) {
@@ -118,18 +122,18 @@ public class DaoFund {
 		}
 		return List.of(addressList);
 	}
-	
+
 	/***
 	 * Add fund to the daoFund wallet
 	 ***/
 	@External
 	@Payable
 	public void add_fund() {}
-		 
+
 	@External
 	public void withdraw_fund( Address _address, BigInteger _amount, String _memo) {
 		Address sender = Context.getCaller();
-		
+
 		if (!containsInArrayDb(sender, this.admins)) {
 			Context.revert(TAG + ": Only admins can run this method.");
 		}
@@ -138,9 +142,9 @@ public class DaoFund {
 		if ( _available_amount.compareTo(_amount) == -1 ) {
 			Context.revert(TAG + ": Not Enough balance. Available Balance =" + _available_amount.toString());
 		}
-		
+
 		try {
-			
+
 			BigInteger _count = this.withdraw_count.get();
 			BigInteger _withdraw_count = _count.add(BigInteger.ONE);
 
@@ -153,7 +157,7 @@ public class DaoFund {
 			this.withdraw_record.at(_withdraw_count).set("withdraw_address", _address.toString());
 			this.withdraw_record.at(_withdraw_count).set("withdraw_memo", _memo);
 			this.withdraw_record.at(_withdraw_count).set("withdraw_timestamp", day.toString());
-			
+
 			// self.icx.transfer(_address, _amount)
 			Context.transfer(_address, _amount);
 			FundTransferred(_address, _amount.toString() + " transferred to " +_address.toString() + " for " + _memo);
@@ -161,25 +165,25 @@ public class DaoFund {
 			Context.revert(TAG + ": Network problem. Claiming Reward. Reason: " + e.getCause());
 		}
 	}
-	
+
 	@External(readonly = true)
 	public BigInteger get_withdraw_count() {
 		return this.withdraw_count.get();
 	}
-	
+
 	@SuppressWarnings("unchecked")
 	@External(readonly = true)
 	public List<String> get_withdraw_records(BigInteger _start, BigInteger _end) {
 		BigInteger wd_count = this.withdraw_count.get();
-		
+
 		if ( !(_start != null || _end!= null || wd_count !=null) ) {
 			return List.of("No Records Found.");
 		}
-		
+
 		if (wd_count.compareTo(BigInteger.ZERO) == 0) {
 			return List.of("No Records Found.");
 		}
-		
+
 		if (_start.compareTo(BigInteger.ZERO) == 0 && _end.compareTo(BigInteger.ZERO)== 0 ) {
 			_end = wd_count;
 			Long max =  Math.max(1L, _end.longValue() - BATCH_SIZE.longValue());
@@ -191,15 +195,15 @@ public class DaoFund {
 			Long max =  Math.max(1L, _end.longValue() - BATCH_SIZE.longValue());
 			_start = BigInteger.valueOf(max);
 		}
-		
+
 		if (_end.compareTo(wd_count) == 1) {
-			  _end = wd_count;
+			_end = wd_count;
 		}
-		
+
 		if ( _start.compareTo(_end) >= 1) {
 			return List.of("Start must not be greater than or equal to end.");
 		}
-		
+
 		if ( _end.subtract(_start).compareTo(BATCH_SIZE) == 1 ) {
 			return List.of("Maximum allowed range is " +BATCH_SIZE.longValue());
 		}
@@ -209,7 +213,7 @@ public class DaoFund {
 		//TODO:verify the index here, and most important, why in py adds one
 		String[] listJson = new String[_end.intValue()-_start.intValue()];
 		for( int _withdraw = _start.intValue();  _withdraw<=_end.intValue(); _withdraw++) {
-			
+
 			BigInteger idx = BigInteger.valueOf(_withdraw);
 
 			entries[0] = Map.entry("withdraw_address", this.withdraw_record.at(idx).get("withdraw_address"));
@@ -240,18 +244,18 @@ public class DaoFund {
 
 	@Payable
 	public void fallback() {}
-	
+
 	@EventLog(indexed=1)
 	public void AdminAdded(Address _address) {}	
-	        
+
 	@EventLog(indexed=1)
 	public void AdminRemoved(Address _address) {}	
-        
+
 	@EventLog(indexed=1)
 	public void FundTransferred(Address _address, String note) {}	
-        
-	
-/***	
+
+
+	/***	
 	private LinkedList<String> getWithdrawRecord(String property){
 		LinkedList<String> withdrawRecord = this.withdraw_record.get(property);
 		if(withdrawRecord == null) {
@@ -260,8 +264,8 @@ public class DaoFund {
 		}
 		return this.withdraw_record.get(property);
 	}
-	
-	
+
+
 	private LinkedList<String> getWithdrawRecordReadOnly(String property){
 		LinkedList<String> withdrawRecord = this.withdraw_record.get(property);
 		if(withdrawRecord == null) {
@@ -269,8 +273,8 @@ public class DaoFund {
 		}
 		return withdrawRecord;
 	}
-	
-***/	
+
+	 ***/	
 	private <T> Boolean containsInArrayDb(T value, ArrayDB<T> arraydb) {
 		boolean found = false;
 		if(arraydb == null || value == null) {
@@ -286,7 +290,7 @@ public class DaoFund {
 		}
 		return found;
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static <K,V> String mapToJsonString(Map<K, V > map) {
 		StringBuilder sb = new StringBuilder("{");

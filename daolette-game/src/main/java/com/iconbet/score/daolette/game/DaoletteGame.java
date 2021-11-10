@@ -9,6 +9,7 @@ import score.Context;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 public class DaoletteGame {
@@ -55,10 +56,24 @@ public class DaoletteGame {
 	private  VarDB<Boolean> _game_on = Context.newVarDB(this._GAME_ON, Boolean.class);
 	private VarDB<Address> _treasury_score = Context.newVarDB(this._TREASURY_SCORE, Address.class);
 
+	private static final String PAUSED = "paused";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+
 	public DaoletteGame() {
+		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+			onUpdate();
+			return;
+		}
 		Context.println("In __init__."+ TAG);
 		Context.println("owner is "+ Context.getOwner() + ". "+ TAG);
 		this._game_on.set(false);
+
+		this.onUpdate.set(true);
+
+	}
+
+	public void onUpdate() {
+		Context.println("calling on update. "+TAG);
 	}
 
 	@EventLog(indexed=2)
@@ -175,7 +190,11 @@ public class DaoletteGame {
 	 */
 	@External
 	@Payable
-	public void bet_on_numbers(String numbers, String user_seed) {
+	public void bet_on_numbers(String numbers, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
 
 		String[] array = StringUtils.split(numbers, ',');
 		List<Integer> numList = List.of(mapToInt(array));
@@ -199,7 +218,12 @@ public class DaoletteGame {
 	 */
 	@External
 	@Payable
-	public void bet_on_color(boolean color, String user_seed) {
+	public void bet_on_color(boolean color, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
+
 		List<Integer> numbers;
 		if (color) {
 			numbers = WHEEL_RED;
@@ -219,7 +243,12 @@ public class DaoletteGame {
 	 */
 	@External
 	@Payable
-	public void bet_on_even_odd(boolean even_odd, String user_seed) {
+	public void bet_on_even_odd(boolean even_odd, @Optional String user_seed) {
+
+		if(user_seed == null) {
+			user_seed = "";
+		}
+
 		List<Integer> numbers;
 		if (even_odd) {
 			numbers = WHEEL_ODD;
@@ -250,6 +279,11 @@ public class DaoletteGame {
     :rtype: float
 	 */
 	public double get_random(String userSeed) {
+
+		if(userSeed == null) {
+			userSeed = "";
+		}
+
 		Context.println("Entered get_random. "+ TAG);
 		if ( Context.getCaller().isContract() ) {
 			Context.revert("ICONbet: SCORE cant play games");
