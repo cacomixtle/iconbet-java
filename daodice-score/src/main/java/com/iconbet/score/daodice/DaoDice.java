@@ -377,7 +377,7 @@ public class DaoDice {
 			Context.println("Amount owed to winner: {"+payout.toString()+"}. "+TAG);			
 			try {
 				Context.println("Trying to send to ({"+Context.getOrigin().toString()+"}): {"+payout.toString()+"}. "+TAG);
-				Context.call(Context.getOrigin(), "wager_payout", payout);
+				Context.call(this._roulette_score.get(), "wager_payout", payout);
 				Context.println("Sent winner ({"+Context.getOrigin().toString()+"}): {"+payout.toString()+"}. "+TAG);
 
 			}catch(Exception e) {

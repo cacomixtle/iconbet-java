@@ -175,8 +175,8 @@ class DaoDiceIT extends TestBase{
 
 		TransactionResult txn = daoDiceGame.invokeAndWaitResult(chain.godWallet, "call_bet", 
 				new RpcObject.Builder()
-				.put("upper", new RpcValue(BigInteger.valueOf(50)))
-				.put("lower", new RpcValue(BigInteger.valueOf(10)))
+				.put("upper", new RpcValue(BigInteger.valueOf(76)))
+				.put("lower", new RpcValue(BigInteger.valueOf(16)))
 				.build(),
 				new BigInteger("200000000000000000"),
 				new BigInteger("100000000"));
