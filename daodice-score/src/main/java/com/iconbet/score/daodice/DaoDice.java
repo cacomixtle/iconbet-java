@@ -1,5 +1,6 @@
 package com.iconbet.score.daodice;
 
+import static java.math.BigInteger.TWO;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
@@ -268,10 +269,10 @@ public class DaoDice {
 		BetSource(get_roulette_score(), side_bet_amount);
 
 		BigInteger _treasury_min = Context.call(BigInteger.class,this._roulette_score.get(), "get_treasury_min");
+		Context.println("actual treasury min "+ _treasury_min +  "  "+ TAG);
 		Context.transfer(this._roulette_score.get(), Context.getValue());
 		FundTransfer(this._roulette_score.get(),  Context.getValue(), "Sending icx to Roulette");
-		Context.call(Context.getValue(),this._roulette_score.get(), "take_wager");
-
+		Context.call(this._roulette_score.get(), "take_wager", Context.getValue());
 
 		if (!this._game_on.get()) {
 			Context.println("Game not active yet. "+TAG);
@@ -283,7 +284,7 @@ public class DaoDice {
 			Context.revert("Invalid bet. Choose a number between 0 to 99");
 		}
 
-		BigInteger gapResult = upper.subtract(upper);
+		BigInteger gapResult = upper.subtract(lower);
 		if(!(BigInteger.ZERO.compareTo(gapResult)== -1 &&
 				gapResult.compareTo(_95)== -1 ) ) {
 			Context.println("Bet placed with illegal gap "+TAG);
@@ -324,11 +325,16 @@ public class DaoDice {
 			Context.revert("No main bet amount provided");				
 		}
 
-		// l = ( t * 1.5 * g) / [68134 - (681.34 * g)]  = t * {(1.5 * g) / [68134 - (681.34 * g)]}
-		BigInteger main_bet_limit = _treasury_min.multiply( BigInteger.valueOf((long) ( 
-				(_1_5D * gap.intValue()) / 
-				(_68134 - (_681_34 * gap.intValue() ))
-				)));
+		// l = ( t * 1.5 * g) / [68134 - (681.34 * g)]
+		//   = t * {(1.5 * g) / [68134 - (681.34 * g)]}
+		//   = t * 3/2 * g / [ 100/100 (68134 - 681.34 * g) ]
+		//   = t * 3/2 * g / [ (6813400 - 68134 * g)/100 ]
+		//   = t * 3/2 * g *  1 / [ (6813400 - 68134 * g)/100 ]
+		//   = t * 3/2 * g *  100 / (6813400 - 68134 * g)
+		//   = t * 3/2 * g *  100 / (100(68134 - 681.34 * g))
+		BigInteger main_bet_limit =
+				_treasury_min.multiply(BigInteger.valueOf(3)).divide(TWO).multiply(gap).multiply(_100)
+				.divide( BigInteger.valueOf((long) (100 * (_68134 - _681_34 * gap.intValue()) )));
 
 		if ( BET_MIN.compareTo(main_bet_amount)== 1 || main_bet_amount.compareTo(main_bet_limit) == 1) {
 			Context.println("Betting amount "+main_bet_amount.toString() +" out of range. "+TAG);
@@ -341,7 +347,7 @@ public class DaoDice {
 		BigInteger payout = side_bet_payout.add(main_bet_payout);
 		BigInteger balance = Context.getBalance(this._roulette_score.get());
 		if (balance.compareTo(payout) == -1) {
-			Context.println("Not enough in treasury to make the play. "+TAG);
+			Context.println("Not enough in treasury to make the play "+balance+". "+TAG);
 			Context.revert("Not enough in treasury to make the play.");
 		}
 		double spin = get_random(user_seed);
@@ -432,9 +438,14 @@ public class DaoDice {
 	}
 
 	int fromByteArray(byte[] bytes) {
-		return ((bytes[0] & 0xFF) << 24) | 
-				((bytes[1] & 0xFF) << 16) | 
-				((bytes[2] & 0xFF) << 8 ) | 
-				((bytes[3] & 0xFF) << 0 );
+	     int order = ((bytes[0] & 0xFF) << 24) | 
+	            ((bytes[1] & 0xFF) << 16) | 
+	            ((bytes[2] & 0xFF) << 8 ) | 
+	            ((bytes[3] & 0xFF) << 0 );
+	     //TODO: this cand be negative, why???
+	     if(order < 0) {
+	    	 return order * -1;
+	     }
+	     return order;
 	}
 }
