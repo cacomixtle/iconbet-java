@@ -1,5 +1,7 @@
 package com.iconbet.score.daodice;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.math.BigInteger;
 
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,8 @@ class DaoDiceTest {
 		BigInteger main_bet_limit = 
 				_treasury_min.multiply(BigInteger.valueOf(3)).divide( BigInteger.TWO).multiply(gap)
 				.multiply(BigInteger.valueOf(100)).divide( BigInteger.valueOf((long) (100* (_68134 - _681_34* gap.intValue()) )));
-				
+
 		System.out.println(main_bet_limit);
+		assertEquals(new BigInteger("13209264097220183755540"), main_bet_limit);
 	}
 }

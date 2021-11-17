@@ -87,21 +87,7 @@ class DaoDiceIT extends TestBase{
 	@Test
 	void testBet() throws IOException, ResultTimeoutException {
 		assertNotNull(daoDiceGame);
-/*
-		Transaction transaction = TransactionBuilder.newBuilder()
-				.nid(BigInteger.valueOf(chain.networkId))
-				.from(chain.godWallet.getAddress())
-				.to(daoDiceGame.getAddress())
-				.value(BigInteger.valueOf(1010).multiply(MULTIPLIER))
-				.build();
 
-		BigInteger steps = iconService.estimateStep(transaction).execute().add(BigInteger.valueOf(10000));
-
-		SignedTransaction signedTransaction = new SignedTransaction(transaction, chain.godWallet, steps);
-
-		//method annotated with @Payable will be call when we transfer icx
-		iconService.sendTransaction(signedTransaction).execute();
-*/
 		authorization.invokeAndWaitResult(chain.godWallet, "set_super_admin", 
 				new RpcObject.Builder()
 				.put("_super_admin", new RpcValue(chain.godWallet.getAddress()))
@@ -184,7 +170,61 @@ class DaoDiceIT extends TestBase{
 		System.out.println(txn);
 		assertEquals(BigInteger.ONE, txn.getStatus());
 
-		
+		//icon_logo1
+		//icon_logo2
+		//digits_match
+		txn = daoDiceGame.invokeAndWaitResult(chain.godWallet, "call_bet", 
+				new RpcObject.Builder()
+				.put("upper", new RpcValue(BigInteger.valueOf(70)))
+				.put("lower", new RpcValue(BigInteger.valueOf(10)))
+				.put("side_bet_amount", new RpcValue(new BigInteger("100000000000000000")))
+				.put("side_bet_type", new RpcValue("icon_logo1"))
+				.build(),
+				new BigInteger("200000000000000000"),
+				new BigInteger("100000000"));
+		assertEquals(BigInteger.ONE, txn.getStatus());
+		System.out.println(txn);
+
+		txn = daoDiceGame.invokeAndWaitResult(chain.godWallet, "call_bet", 
+				new RpcObject.Builder()
+				.put("upper", new RpcValue(BigInteger.valueOf(70)))
+				.put("lower", new RpcValue(BigInteger.valueOf(10)))
+				.put("side_bet_amount", new RpcValue(new BigInteger("200000000000000000")))
+				.put("side_bet_type", new RpcValue("icon_logo2"))
+				.build(),
+				new BigInteger("400000000000000000"),
+				new BigInteger("100000000"));
+		assertEquals(BigInteger.ONE, txn.getStatus());
+		System.out.println(txn);
+
+		txn = daoDiceGame.invokeAndWaitResult(chain.godWallet, "call_bet", 
+				new RpcObject.Builder()
+				.put("upper", new RpcValue(BigInteger.valueOf(70)))
+				.put("lower", new RpcValue(BigInteger.valueOf(10)))
+				.put("side_bet_amount", new RpcValue(new BigInteger("200000000000000000")))
+				.put("side_bet_type", new RpcValue("digits_match"))
+				.build(),
+				new BigInteger("400000000000000000"),
+				new BigInteger("100000000"));
+		assertEquals(BigInteger.ONE, txn.getStatus());
+		System.out.println(txn);
+
+
+		//send some ICX just to test fallback method
+		Transaction transaction = TransactionBuilder.newBuilder()
+				.nid(BigInteger.valueOf(chain.networkId))
+				.from(chain.godWallet.getAddress())
+				.to(daoDiceGame.getAddress())
+				.value(BigInteger.valueOf(1010).multiply(MULTIPLIER))
+				.build();
+
+		BigInteger steps = iconService.estimateStep(transaction).execute().add(BigInteger.valueOf(10000));
+
+		SignedTransaction signedTransaction = new SignedTransaction(transaction, chain.godWallet, steps);
+
+		//method annotated with @Payable will be call when we transfer icx
+		iconService.sendTransaction(signedTransaction).execute();
+
 	}
 }
 

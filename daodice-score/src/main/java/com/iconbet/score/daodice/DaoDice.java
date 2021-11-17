@@ -297,7 +297,7 @@ public class DaoDice {
 			Context.revert("should set both side bet type as well as side bet amount");
 		}
 
-		if(BigInteger.ZERO.compareTo(side_bet_amount)== -1) {
+		if(side_bet_amount.compareTo(BigInteger.ZERO) < 0) {
 			Context.revert("Bet amount cannot be negative'");
 		}
 
