@@ -584,10 +584,12 @@ public class Authorization{
 			day.add(now.divide(U_SECONDS_DAY));			
 		}
 
-		Map.Entry<String, String>[] wagers = new Map.Entry[this.get_approved_games().size()];
+		List<Address> approvedGames = this.get_approved_games();
+		int size = approvedGames.size();
+		Map.Entry<String, String>[] wagers = new Map.Entry[size];
 
-		for (int i= 0; i< this.get_approved_games().size(); i++ ) {
-			Address game = this.get_approved_games().get(i);
+		for (int i= 0; i< size; i++ ) {
+			Address game = approvedGames.get(i);
 			wagers[i] = Map.entry(game.toString(), String.valueOf(this.wagers.at(day).get(game)) );
 		}
 		return Map.ofEntries(wagers);
@@ -788,7 +790,11 @@ public class Authorization{
 			}			
 		}
 
-		game_developers_amount = this.game_developers_share.get().multiply(positive_excess);
+		game_developers_amount = this.game_developers_share.getOrDefault(ZERO) .multiply(positive_excess);
+		Context.println("game_developers_share amount was calculates as "+ game_developers_amount);
+		if(game_developers_amount.equals(ZERO)) {
+			return ZERO;
+		}
 		game_developers_amount = game_developers_amount.divide(BigInteger.valueOf(100L));
 
 		return game_developers_amount;
@@ -803,6 +809,7 @@ public class Authorization{
 	 ***/
 	@External
 	public BigInteger record_excess() {
+		Context.println("In record excess method." + TAG);
 		Address sender = Context.getCaller();
 
 		if (!sender.equals( this.roulette_score.get()) ) {
@@ -815,8 +822,16 @@ public class Authorization{
 		BigInteger now = BigInteger.valueOf(Context.getBlockTimestamp());		
 		day = day.add(now.divide(U_SECONDS_DAY));
 
-		for (int i= 0; i< this.get_approved_games().size(); i++ ) {
-			Address game = this.get_approved_games().get(i);
+        List<Address> approvedGames = this.get_approved_games();
+        int size = approvedGames.size();
+
+		Context.println("number of approved games:" + size);
+		for (int i= 0; i< size; i++ ) {
+			Address game = approvedGames.get(i);
+			if(game == null) {
+				Context.println("warn - no address defined for index "+ i);
+				continue;
+			}
 			BigInteger game_excess =  this.todays_games_excess.get(game);
 			this.games_excess_history.at(day.subtract(BigInteger.ONE)).set(game, game_excess);
 			if (game_excess!= null &&
@@ -825,8 +840,13 @@ public class Authorization{
 				this.todays_games_excess.set(game, BigInteger.ZERO);
 			}
 		}
-		game_developers_amount = this.game_developers_share.get().multiply(positive_excess);
+		game_developers_amount = this.game_developers_share.getOrDefault(ZERO).multiply(positive_excess);
+		Context.println("game_developers_share amount rate is "+ game_developers_amount);
+		if(game_developers_amount.equals(ZERO)) {
+			return ZERO;
+		}
 		game_developers_amount = game_developers_amount.divide(BigInteger.valueOf(100L));
+		Context.println("game_developers_share final amount was calculates as "+ game_developers_amount);
 
 		return game_developers_amount;
 	}
