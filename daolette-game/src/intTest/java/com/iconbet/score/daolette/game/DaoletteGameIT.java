@@ -179,7 +179,10 @@ class DaoletteGameIT extends TestBase{
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(rewardDistribution.getAddress()))
 				.build());
-
+		daolette.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(dividendDistribution.getAddress()))
+				.build());
 		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(dividendDistribution.getAddress()))
@@ -217,6 +220,17 @@ class DaoletteGameIT extends TestBase{
 				.build(),
 				BigInteger.valueOf(1000).multiply(MULTIPLIER)
 				,null);
+
+		tapToken.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(dividendDistribution.getAddress()))
+				.build());
+		tapToken.invokeAndWaitResult(chain.godWallet, "toggle_staking_enabled", 
+				new RpcObject.Builder()
+				.build());
+		tapToken.invokeAndWaitResult(chain.godWallet, "toggle_switch_divs_to_staked_tap_enabled", 
+				new RpcObject.Builder()
+				.build());
 
 		//bet on daolette game
 		TransactionResult txn = daoletteGame.invokeAndWaitResult(chain.godWallet, "bet_on_even_odd", 

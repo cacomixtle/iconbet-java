@@ -69,11 +69,11 @@ class DaoDiceIT extends TestBase{
 		authorization = txHandler.deploy(chain.godWallet, Score.getFilePath("game-authorization-score"), null);
 		rewardDistribution = txHandler.deploy(chain.godWallet, Score.getFilePath("reward-distribution"), null);
 
-		/*tapToken = txHandler.deploy(chain.godWallet, Score.getFilePath("tap-token"), new RpcObject.Builder()
+		tapToken = txHandler.deploy(chain.godWallet, Score.getFilePath("tap-token"), new RpcObject.Builder()
                 .put("_decimals", new RpcValue(decimals))
                 .put("_initialSupply", new RpcValue(initialSupply))
                 .build()
-                );*/
+                );
 
 	}
 
@@ -144,6 +144,10 @@ class DaoDiceIT extends TestBase{
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(rewardDistribution.getAddress()))
 				.build());
+		daolette.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(dividendDistribution.getAddress()))
+				.build());
 
 		authorization.invokeAndWaitResult(chain.godWallet, "set_roulette_score", 
 				new RpcObject.Builder()
@@ -157,6 +161,25 @@ class DaoDiceIT extends TestBase{
 		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_game_score", 
 				new RpcObject.Builder()
 				.put("_score", new RpcValue(daolette.getAddress()))
+				.build());
+		rewardDistribution.invokeAndWaitResult(chain.godWallet, "set_token_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(tapToken.getAddress()))
+				.build());
+		dividendDistribution.invokeAndWaitResult(chain.godWallet, "set_token_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(tapToken.getAddress()))
+				.build());
+
+		tapToken.invokeAndWaitResult(chain.godWallet, "set_dividends_score", 
+				new RpcObject.Builder()
+				.put("_score", new RpcValue(dividendDistribution.getAddress()))
+				.build());
+		tapToken.invokeAndWaitResult(chain.godWallet, "toggle_staking_enabled", 
+				new RpcObject.Builder()
+				.build());
+		tapToken.invokeAndWaitResult(chain.godWallet, "toggle_switch_divs_to_staked_tap_enabled", 
+				new RpcObject.Builder()
 				.build());
 
 		TransactionResult txn = daoDiceGame.invokeAndWaitResult(chain.godWallet, "call_bet", 

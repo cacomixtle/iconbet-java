@@ -309,8 +309,9 @@ public class TapToken implements IRC2{
 	}
 
 	private void stakingEnabledOnly() {
-		Context.println("staking enabled? : " + this.stakingEnabled.get());
-		if (! this.stakingEnabled.getOrDefault(false)) {
+		boolean enabled = this.stakingEnabled.getOrDefault(false);
+		Context.println("staking enabled? : " + enabled);
+		if (!enabled) {
 			Context.revert("Staking must first be enabled.");
 		}
 	}
@@ -762,7 +763,7 @@ public class TapToken implements IRC2{
 		this.stakingEnabledOnly();
 		this.switchDivsToStakedTapEnabledOnly();
 		this.dividendsOnly();
-		int yesterday = (this.stakeAddressUpdateDb.get() + 1) % 2;
+		int yesterday = (this.stakeAddressUpdateDb.getOrDefault(0) + 1) % 2;
 		ArrayDB<Address> yesterdaysChanges = this.stakeChanges.get(yesterday);
 		int lengthList = yesterdaysChanges.size();
 		if (lengthList == 0) {
