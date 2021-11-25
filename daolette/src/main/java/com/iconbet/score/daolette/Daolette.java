@@ -115,8 +115,8 @@ public class Daolette{
 	private VarDB<BigInteger> _yesterdays_excess = Context.newVarDB(_YESTERDAYS_EXCESS, BigInteger.class);
 	private VarDB<BigInteger> _daofund_to_distirbute = Context.newVarDB(_DAOFUND_TO_DISTRIBUTE, BigInteger.class);
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public Daolette() {
 		if (this.onUpdate.get() != null && this.onUpdate.get()) {

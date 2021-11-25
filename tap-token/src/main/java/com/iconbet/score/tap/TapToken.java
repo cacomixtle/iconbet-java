@@ -115,9 +115,9 @@ public class TapToken implements IRC2{
 	private final ArrayDB<Address> pauseWhitelist = Context.newArrayDB(PAUSE_WHITELIST, Address.class);
 	private final ArrayDB<Address> locklist = Context.newArrayDB(LOCKLIST, Address.class);
 
-
-	//TODO:this var must exists in py tap-token score before updating from py to java
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	//this var must exists in py tap-token score before updating from py to java
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public TapToken(BigInteger _initialSupply, BigInteger _decimals) {
 		//we mimic on_update py feature, updating java score will call <init> (constructor) method 

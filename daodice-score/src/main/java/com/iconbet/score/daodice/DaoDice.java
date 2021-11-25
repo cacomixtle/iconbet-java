@@ -40,14 +40,14 @@ public class DaoDice {
 	public static Map<String, Double> SIDE_BET_MULTIPLIERS = Map.of("digits_match",MAIN_BET_MULTIPLIER, "icon_logo1", FIVE, "icon_logo2", SIDE_BET_MULTIPLIER );
 	public static Map<String, BigInteger> BET_LIMIT_RATIOS_SIDE_BET = Map.of("digits_match", _1140, "icon_logo1", _540, "icon_logo2", _12548 );
 
-	private final String _GAME_ON = "game_on";
-	private final String _ROULETTE_SCORE = "roulette_score";
+	private static final String _GAME_ON = "game_on";
+	private static final String _ROULETTE_SCORE = "roulette_score";
 
 	private VarDB<Boolean> _game_on = Context.newVarDB(_GAME_ON, Boolean.class); 
 	private VarDB<Address> _roulette_score = Context.newVarDB(_ROULETTE_SCORE, Address.class); 
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public DaoDice() {
 		if (this.onUpdate.get() != null && this.onUpdate.get()) {

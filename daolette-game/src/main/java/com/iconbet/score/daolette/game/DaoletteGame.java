@@ -53,11 +53,11 @@ public class DaoletteGame {
 	private String _GAME_ON = "game_on";
 	private String _TREASURY_SCORE="treasury_score";
 
-	private  VarDB<Boolean> _game_on = Context.newVarDB(this._GAME_ON, Boolean.class);
+	private VarDB<Boolean> _game_on = Context.newVarDB(this._GAME_ON, Boolean.class);
 	private VarDB<Address> _treasury_score = Context.newVarDB(this._TREASURY_SCORE, Address.class);
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public DaoletteGame() {
 		if (this.onUpdate.get() != null && this.onUpdate.get()) {

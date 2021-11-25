@@ -86,8 +86,8 @@ public class Authorization{
 	private final DictDB<Address,BigInteger> maximum_payouts = Context.newDictDB(MAXIMUM_PAYOUTS, BigInteger.class);
 	private final VarDB<BigInteger> maximum_loss = Context.newVarDB(MAXIMUM_LOSS, BigInteger.class);
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public Authorization() {
 		//we mimic on_update py feature, updating java score will call <init> (constructor) method 

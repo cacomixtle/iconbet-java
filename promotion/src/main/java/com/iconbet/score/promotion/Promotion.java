@@ -25,16 +25,16 @@ public class Promotion {
 	public static BigInteger TEN_18 = new BigInteger("1000000000000000000");
 	public static int[] WAGER_WAR_PRIZE = new int[] {25, 20, 15, 10, 10, 6, 6, 3, 3, 2};
 
-	private String _REWARDS_SCORE = "rewards_score";
-	private String _DIVIDENDS_SCORE = "dividends_score";
-	private String _TOTAL_PRIZES = "total_prizes";
+	private static final String _REWARDS_SCORE = "rewards_score";
+	private static final String _DIVIDENDS_SCORE = "dividends_score";
+	private static final String _TOTAL_PRIZES = "total_prizes";
 
-	public VarDB<Address> _rewards_score = Context.newVarDB(this._REWARDS_SCORE, Address.class);
-	public VarDB<Address> _dividends_score = Context.newVarDB(this._DIVIDENDS_SCORE, Address.class);
-	public VarDB<BigInteger> _total_prizes = Context.newVarDB(this._TOTAL_PRIZES, BigInteger.class);
+	public VarDB<Address> _rewards_score = Context.newVarDB(_REWARDS_SCORE, Address.class);
+	public VarDB<Address> _dividends_score = Context.newVarDB(_DIVIDENDS_SCORE, Address.class);
+	public VarDB<BigInteger> _total_prizes = Context.newVarDB(_TOTAL_PRIZES, BigInteger.class);
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public Promotion(){
 		//we mimic on_update py feature, updating java score will call <init> (constructor) method 

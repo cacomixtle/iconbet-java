@@ -29,8 +29,8 @@ public class DaoFund {
 	private final VarDB<BigInteger> withdraw_count = Context.newVarDB(WITHDRAW_COUNT, BigInteger.class);
 	private final BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
 
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public DaoFund() {
 		if (this.onUpdate.get() != null && this.onUpdate.get()) {

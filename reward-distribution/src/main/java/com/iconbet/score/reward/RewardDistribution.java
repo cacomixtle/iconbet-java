@@ -25,22 +25,22 @@ public class RewardDistribution {
 	public static final boolean DEBUG = false;
 	public static final BigInteger TAP = BigInteger.valueOf(1000000000000000000l);
 
-	private static String _WAGERS = "wagers";
-	private static String _DAY = "day";
-	private static String _EVEN_DAY = "even_day";
-	private static String _ODD_DAY = "odd_day";
-	private static String _EVEN_DAY_TOTAL = "even_day_total";
-	private static String _ODD_DAY_TOTAL = "odd_day_total";
-	private static String _WAGER_TOTAL = "wager_total";
+	private static final String _WAGERS = "wagers";
+	private static final String _DAY = "day";
+	private static final String _EVEN_DAY = "even_day";
+	private static final String _ODD_DAY = "odd_day";
+	private static final String _EVEN_DAY_TOTAL = "even_day_total";
+	private static final String _ODD_DAY_TOTAL = "odd_day_total";
+	private static final String _WAGER_TOTAL = "wager_total";
 
-	private static String _DAILY_DIST = "daily_dist";
-	private static String _DIST_INDEX = "dist_index";
-	private static String _DIST_COMPLETE = "dist_complete";
+	private static final String _DAILY_DIST = "daily_dist";
+	private static final String _DIST_INDEX = "dist_index";
+	private static final String _DIST_COMPLETE = "dist_complete";
 
-	private static String _GAME_SCORE = "game_score";
-	private static String _TOKEN_SCORE = "token_score";
-	private static String _DIVIDENDS_SCORE = "dividends_score";
-	private static String _BATCH_SIZE = "batch_size";
+	private static final String _GAME_SCORE = "game_score";
+	private static final String _TOKEN_SCORE = "token_score";
+	private static final String _DIVIDENDS_SCORE = "dividends_score";
+	private static final String _BATCH_SIZE = "batch_size";
 
 	private static String _REWARDS_GONE = "rewards_gone";
 	private static String _YESTERDAYS_TAP_DISTRIBUTION = "yesterdays_tap_distribution";
@@ -76,9 +76,9 @@ public class RewardDistribution {
 	private VarDB<Boolean> _rewards_gone = Context.newVarDB(_REWARDS_GONE, Boolean.class);
 	private VarDB<BigInteger> _yesterdays_tap_distribution = Context.newVarDB(_YESTERDAYS_TAP_DISTRIBUTION, BigInteger.class);
 
-	//TODO:this var must exists in py tap-token score before updating from py to java
-	private static final String PAUSED = "paused";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(PAUSED, Boolean.class);
+	//this var must exists in py tap-token score before updating from py to java
+	private static final String UPDATE_SCORE = "update_score";
+	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
 
 	public RewardDistribution() {
 		//we mimic on_update py feature, updating java score will call <init> (constructor) method 
