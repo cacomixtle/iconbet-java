@@ -56,19 +56,15 @@ public class DaoletteGame {
 	private VarDB<Boolean> _game_on = Context.newVarDB(this._GAME_ON, Boolean.class);
 	private VarDB<Address> _treasury_score = Context.newVarDB(this._TREASURY_SCORE, Address.class);
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public DaoletteGame() {
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public DaoletteGame(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
 		Context.println("In __init__."+ TAG);
 		Context.println("owner is "+ Context.getOwner() + ". "+ TAG);
 		this._game_on.set(false);
-
-		this.onUpdate.set(true);
 
 	}
 

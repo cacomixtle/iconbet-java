@@ -16,6 +16,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 public class Dividend {
@@ -125,16 +126,14 @@ public class Dividend {
 
 	private final ArrayDB<String> _exception_address = Context.newArrayDB(_EXCEPTION_ADDRESS, String.class);
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public Dividend() {
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public Dividend(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
 		this._total_divs.set(ZERO);
-		this.onUpdate.set(true);
+
 	}
 
 	public void onUpdate() {

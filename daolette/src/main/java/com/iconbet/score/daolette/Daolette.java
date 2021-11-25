@@ -115,14 +115,13 @@ public class Daolette{
 	private VarDB<BigInteger> _yesterdays_excess = Context.newVarDB(_YESTERDAYS_EXCESS, BigInteger.class);
 	private VarDB<BigInteger> _daofund_to_distirbute = Context.newVarDB(_DAOFUND_TO_DISTRIBUTE, BigInteger.class);
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public Daolette() {
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public Daolette(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
+
 		Context.println("In __init__. "+ TAG);
 		Context.println("owner is "+Context.getOwner()+". "+TAG);
 
@@ -142,8 +141,6 @@ public class Daolette{
 		this._open_treasury.set(false);
 		this._game_auth_score.set(ZERO_ADDRESS);
 		this._excess_smoothing_live.set(false);
-
-		this.onUpdate.set(true);
 
 	}
 

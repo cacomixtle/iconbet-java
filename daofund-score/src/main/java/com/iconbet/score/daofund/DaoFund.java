@@ -12,6 +12,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 public class DaoFund {
@@ -29,17 +30,14 @@ public class DaoFund {
 	private final VarDB<BigInteger> withdraw_count = Context.newVarDB(WITHDRAW_COUNT, BigInteger.class);
 	private final BranchDB<BigInteger, DictDB<String, String>> withdraw_record = Context.newBranchDB(WITHDRAW_RECORD, String.class);
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public DaoFund() {
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public DaoFund(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
-		Context.println("In __init__. "+ TAG);
 
-		this.onUpdate.set(true);
+		Context.println("In __init__. "+ TAG);
 
 	}
 

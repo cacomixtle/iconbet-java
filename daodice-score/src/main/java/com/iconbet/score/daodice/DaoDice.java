@@ -46,22 +46,19 @@ public class DaoDice {
 	private VarDB<Boolean> _game_on = Context.newVarDB(_GAME_ON, Boolean.class); 
 	private VarDB<Address> _roulette_score = Context.newVarDB(_ROULETTE_SCORE, Address.class); 
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public DaoDice() {
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public DaoDice(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
+
 		if (DEBUG) {
 			Context.println("In __init__. "+ TAG);
 			Address owner = Context.getOrigin();
 			Context.println("owner is "+ owner.toString() +" "+TAG);		
 		}
 		this._game_on.set(Boolean.FALSE);
-
-		this.onUpdate.set(true);
 
 	}
 

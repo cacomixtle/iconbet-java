@@ -86,15 +86,14 @@ public class Authorization{
 	private final DictDB<Address,BigInteger> maximum_payouts = Context.newDictDB(MAXIMUM_PAYOUTS, BigInteger.class);
 	private final VarDB<BigInteger> maximum_loss = Context.newVarDB(MAXIMUM_LOSS, BigInteger.class);
 
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
+	public Authorization(@Optional boolean _on_update_var) {
 
-	public Authorization() {
-		//we mimic on_update py feature, updating java score will call <init> (constructor) method 
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
+
 		if(DEBUG) {
 			Context.println("In __init__." +  TAG);
 			Context.println("owner is " + Context.getOwner()+" "+ TAG);
@@ -104,7 +103,6 @@ public class Authorization{
 		//TODO: should we define it as false by default?
 		this.apply_watch_dog_method.set(false);
 
-		this.onUpdate.set(true);
 	}
 
 	public void onUpdate() {
@@ -691,7 +689,7 @@ public class Authorization{
 	 ***/
 	@External(readonly = true)
 	public List<String> get_metadata_fields(){
-		return this.METADATA_FIELDS;
+		return METADATA_FIELDS;
 	}
 
 	/***
@@ -753,7 +751,7 @@ public class Authorization{
 	 ***/
 	@External(readonly = true)
 	public List<String> get_game_type(){
-		return this.GAME_TYPE;
+		return GAME_TYPE;
 	}
 
 	/***

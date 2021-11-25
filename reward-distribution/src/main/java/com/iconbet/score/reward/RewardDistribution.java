@@ -15,6 +15,7 @@ import score.DictDB;
 import score.VarDB;
 import score.annotation.EventLog;
 import score.annotation.External;
+import score.annotation.Optional;
 import score.annotation.Payable;
 
 public class RewardDistribution {
@@ -76,17 +77,12 @@ public class RewardDistribution {
 	private VarDB<Boolean> _rewards_gone = Context.newVarDB(_REWARDS_GONE, Boolean.class);
 	private VarDB<BigInteger> _yesterdays_tap_distribution = Context.newVarDB(_YESTERDAYS_TAP_DISTRIBUTION, BigInteger.class);
 
-	//this var must exists in py tap-token score before updating from py to java
-	private static final String UPDATE_SCORE = "update_score";
-	private final VarDB<Boolean> onUpdate = Context.newVarDB(UPDATE_SCORE, Boolean.class);
-
-	public RewardDistribution() {
-		//we mimic on_update py feature, updating java score will call <init> (constructor) method 
-		if (this.onUpdate.get() != null && this.onUpdate.get()) {
+	public RewardDistribution(@Optional boolean _on_update_var) {
+		if(_on_update_var) {
+			Context.println("updating contract only");
 			onUpdate();
 			return;
 		}
-
 		Context.println("In __init__. "+ TAG);
 		Context.println("owner is " +Context.getOwner() +". "+ TAG);
 		this._day_index.set(ZERO);
@@ -97,7 +93,6 @@ public class RewardDistribution {
 		this._odd_day_total.set(ZERO);
 		this._rewards_gone.set(false);
 
-		this.onUpdate.set(true);
 	}
 
 	public void onUpdate() {

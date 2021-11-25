@@ -34,7 +34,7 @@ class DaoletteGameTest extends TestBase{
 
 	@BeforeEach
 	public void setup() throws Exception {
-		daolettGame = sm.deploy(owner, DaoletteGame.class);
+		daolettGame = sm.deploy(owner, DaoletteGame.class, false);
 	}
 
 	@SuppressWarnings("unchecked")

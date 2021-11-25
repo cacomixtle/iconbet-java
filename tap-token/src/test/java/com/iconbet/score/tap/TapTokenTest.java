@@ -40,7 +40,7 @@ class TapTokenTest extends TestBase {
 
 	@BeforeEach
 	public void setup() throws Exception {
-		tapToken = sm.deploy(owner, TapToken.class, initialSupply, decimals);
+		tapToken = sm.deploy(owner, TapToken.class, initialSupply, decimals, false);
 	}
 
 	@Test

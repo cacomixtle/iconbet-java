@@ -91,6 +91,7 @@ class TapTokenIT extends TestBase{
 				new RpcObject.Builder()
 				.put("_decimals", new RpcValue(BigInteger.ZERO))
 				.put("_initialSupply", new RpcValue(BigInteger.ZERO))
+				.put("_on_update_var", new RpcValue(true))
 				.build(),
 				steps
 				);

@@ -29,7 +29,7 @@ class RewardDistributionTest extends TestBase{
 
 	@BeforeEach
 	public void setup() throws Exception {
-		rewardDistribution = sm.deploy(owner, RewardDistribution.class);
+		rewardDistribution = sm.deploy(owner, RewardDistribution.class, false);
 	}
 
 	@Test
