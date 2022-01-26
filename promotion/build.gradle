@@ -15,6 +15,7 @@ dependencies {
 	testImplementation project(':reward-distribution')
 	testImplementation project(':testinteg')
 	testImplementation 'foundation.icon:icon-sdk:2.0.0'
+	testImplementation group: 'org.mockito', name: 'mockito-inline', version: '4.3.0'
 }
 
 optimizedJar {
