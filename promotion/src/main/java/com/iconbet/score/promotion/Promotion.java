@@ -139,7 +139,7 @@ public class Promotion {
 			}
 		};
 
-		ArrayUtils.quickSort(wagers, 0, wagers.length, c);
+		ArrayUtils.quickSort(wagers, 0, wagers.length-1, c);
 
 		Map.Entry<String, BigInteger>[] topWagers = (Map.Entry<String, BigInteger>[])ArrayUtils.top(wagers, 10, true);
 
