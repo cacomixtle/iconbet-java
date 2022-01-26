@@ -64,8 +64,17 @@ class PromotionTest {
 			.when(() -> Context.getCaller())
 			.thenReturn(rewardScore);
 
+			theMock
+			.when(() -> Context.newVarDB("total_prizes", BigInteger.class))
+			.thenReturn(_total_prizes);
+
 			Mockito.when(_dividends_score.get()).thenReturn(dividendsScore);
-			Mockito.verifyNoInteractions(_total_prizes);
+
+			promotion = new Promotion(false);
+			promotion.fallback();
+
+			Mockito.verify(_total_prizes, Mockito.times(1)).set(ZERO);
+			Mockito.verifyNoInteractions(_rewards_score);
 		}
 	}
 }
